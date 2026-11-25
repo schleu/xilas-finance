@@ -1,0 +1,11 @@
+---
+description: Regras de Spec-Driven Development do Xilas Finance
+alwaysApply: true
+---
+
+Siga o `AGENTS.md` na raiz do repositório e a `specs/constitution.md`.
+
+- Sem tarefa em `specs/*/tasks.md` ligada a uma spec aprovada, não escreva código de comportamento.
+- Mudança de comportamento: atualize a spec primeiro e peça aprovação.
+- Dúvida de requisito: marque `[NEEDS CLARIFICATION]` e pergunte.
+- Antes de concluir: `npm run check` verde e tarefa marcada em `tasks.md`.

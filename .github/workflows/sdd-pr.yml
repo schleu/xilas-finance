@@ -1,0 +1,40 @@
+name: SDD PR
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  traceability:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map((l) => l.name);
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pr.number,
+            });
+            const touchesCode = files.some((f) =>
+              /^(src|api|supabase)\//.test(f.filename),
+            );
+            if (!touchesCode) {
+              core.info("PR sem mudanças em src/api/supabase: rastreabilidade não exigida.");
+              return;
+            }
+            if (labels.includes("sdd-exempt")) {
+              core.warning("PR marcado como sdd-exempt (ex.: hotfix). Documente o motivo no PR.");
+              return;
+            }
+            const body = pr.body ?? "";
+            const hasSpec = /^Spec:\s*specs\/\d{3}-[\w-]+\/spec\.md/im.test(body);
+            const hasTask = /^Task:\s*T-\d{2,3}(\s*,\s*T-\d{2,3})*\s*$/im.test(body);
+            const problems = [];
+            if (!hasSpec) problems.push('Falta a linha "Spec: specs/NNN-nome/spec.md#US-X" no corpo do PR.');
+            if (!hasTask) problems.push('Falta a linha "Task: T-NN" no corpo do PR.');
+            const tasksChanged = files.some((f) => /^specs\/\d{3}-[\w-]+\/tasks\.md$/.test(f.filename));
+            if (!tasksChanged) problems.push("tasks.md não foi atualizado: marque a tarefa concluída.");
+            if (problems.length) core.setFailed(problems.join("\n"));
