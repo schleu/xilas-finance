@@ -4,16 +4,16 @@ import { AuthProvider } from "@/features/auth/components/AuthProvider";
 import { LoginPage } from "@/features/auth/components/LoginPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { SetPasswordPage } from "@/features/auth/components/SetPasswordPage";
+import { CategoriesPage } from "@/features/categories/components/CategoriesPage";
 import { AppLayout } from "./AppLayout";
 import { PlaceholderPage } from "./PlaceholderPage";
 
 const queryClient = new QueryClient();
 
 // Cada rota nasce como placeholder e é substituída pela tarefa indicada em specs/001-core/tasks.md.
-const appPages = [
+const placeholderPages = [
   { path: "/", label: "Início", task: "T-13…T-15", spec: "US-1" },
   { path: "/contas", label: "Contas", task: "T-09…T-11", spec: "US-2 / US-5" },
-  { path: "/categorias", label: "Categorias", task: "T-07", spec: "US-3" },
   { path: "/chat", label: "Chat", task: "T-20…T-24", spec: "US-4" },
 ];
 
@@ -24,13 +24,14 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route path="/definir-senha" element={<SetPasswordPage />} />
         <Route element={<AppLayout />}>
-          {appPages.map((page) => (
+          {placeholderPages.map((page) => (
             <Route
               key={page.path}
               path={page.path}
               element={<PlaceholderPage title={page.label} task={page.task} spec={page.spec} />}
             />
           ))}
+          <Route path="/categorias" element={<CategoriesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
