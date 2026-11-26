@@ -1,8 +1,8 @@
 # Spec 001 — Núcleo do Xilas Finance
 
-**Status:** rascunho · **Versão:** 0.2 · **Foco:** o quê e por quê (sem decisões de implementação)
+**Status:** aprovada · **Versão:** 0.3 · **Foco:** o quê e por quê (sem decisões de implementação)
 
-> Para liberar a implementação das fases 1 a 6, troque o status para `aprovada` (decisão humana).
+> Aprovada em 26/11/2026. Implementação liberada para as fases 1 a 6.
 
 ## Objetivo
 
@@ -137,5 +137,6 @@ Como usuário, quero criar e editar contas e categorias por telas comuns, sem de
 
 ## Histórico
 
+- 0.3 — Aprovada para implementação (26/11/2026).
 - 0.2 — Respostas às perguntas abertas: login por convite, vencimento, recorrência com geração automática, pendentes à parte, categorias livres.
 - 0.1 — Rascunho inicial.
