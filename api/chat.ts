@@ -11,6 +11,7 @@ import {
 } from "./_llm/provider";
 import { buildChatSystemPrompt, type PromptCategory } from "./_llm/prompts";
 import { SlidingWindowRateLimiter } from "./_llm/rateLimit";
+import { CHAT_READ_TOOLS, executeChatTool } from "./_llm/tools";
 
 export interface ChatHttpRequest {
   method?: string;
@@ -93,8 +94,8 @@ export function createChatHandler(deps: ChatHandlerDeps = {}) {
   const createUserSupabase = deps.createUserSupabase ?? defaultCreateUserSupabase;
   const complete = deps.complete ?? createChatCompletion;
   const rateLimiter = deps.rateLimiter ?? defaultRateLimiter;
-  const tools = deps.tools ?? [];
-  const executeTool = deps.executeTool;
+  const tools = deps.tools ?? CHAT_READ_TOOLS;
+  const executeTool = deps.executeTool ?? executeChatTool;
   const getTodayIso = deps.getTodayIso ?? todayIsoFortalezaServer;
 
   return async function handler(req: ChatHttpRequest, res: ChatHttpResponse): Promise<void> {
