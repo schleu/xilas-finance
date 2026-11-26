@@ -6,8 +6,8 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 ## Fase 0 — Fundação
 
 - [x] **T-01 Repositório e projeto base.** Vite + React + TS strict, Tailwind, shadcn/ui, ESLint, Prettier. *Pronto:* `npm run build` e `lint` passam.
-- [ ] **T-02 CI e deploy.** GitHub Actions (typecheck, lint, teste) e projeto na Vercel com preview por PR. *Dep:* T-01. *Pronto:* PR de teste gera preview. (Workflows `ci.yml` e `sdd-pr.yml` já existem em `.github/workflows`; falta criar o repositório no GitHub, conectar a Vercel e validar com um PR de teste.)
-- [ ] **T-03 Supabase (dev e prod) + CLI.** Projetos criados, `supabase/migrations` versionado, variáveis na Vercel. *Pronto:* migração vazia aplica em dev.
+- [ ] **T-02 CI e deploy.** GitHub Actions (typecheck, lint, teste) e projeto na Vercel com preview por PR. *Dep:* T-01. *Pronto:* PR de teste gera preview. (Workflows `ci.yml` e `sdd-pr.yml` já existem em `.github/workflows`; repositório remoto `schleu/xilas-finance` criado. Falta conectar a Vercel e validar com um PR de teste.)
+- [ ] **T-03 Supabase (dev e prod) + CLI.** Projetos criados, `supabase/migrations` versionado, variáveis na Vercel. *Pronto:* migração vazia aplica em dev. (Feito: CLI/config versionados, projeto `xilas-finance` linkado e migração `20261126110237_init.sql` aplicada. Falta: definir dev/prod, criar o segundo projeto e configurar as variáveis na Vercel.)
 - [x] **T-04 Utilitários.** Formatação de moeda BRL (centavos), datas, cliente Supabase. *Dep:* T-01. *Pronto:* testes unitários da formatação.
 
 ## Fase 1 — Acesso e categorias (US-0, US-3)
