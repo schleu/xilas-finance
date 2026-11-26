@@ -39,7 +39,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 
 - [x] **T-18 Spike: provedores gratuitos.** Testar DeepSeek, OpenRouter e Together AI com tool calling e com JSON+Zod; escolher estratégia e modelo primário/reserva. *Pronto:* nota curta em `specs/001-core/research-llm.md`.
 - [x] **T-19 Camada de provedor.** Cliente OpenAI-compatível por env, fallback em 429/5xx/timeout, erro amigável. *Dep:* T-18. *Pronto:* testes com provedor simulado.
-- [ ] **T-20 `/api/chat` + validação de JWT + limite por usuário.** *Dep:* T-19, T-06.
+- [x] **T-20 `/api/chat` + validação de JWT + limite por usuário.** *Dep:* T-19, T-06.
 - [ ] **T-21 Ferramenta `list_bills`.** Colunas explícitas sem dados bancários, via JWT do usuário. *Dep:* T-20, T-08. *Pronto:* teste garante que banco/agência/conta nunca vão ao LLM.
 - [ ] **T-22 Ferramenta `spending_report`.** Usa `spending_by_category`; números iguais aos da homepage. *Dep:* T-20, T-12.
 - [ ] **T-23 `propose_bill` + cartão de confirmação.** Rascunho validado por Zod, bot pergunta só o que falta, cliente grava pelo mesmo serviço da T-09 após confirmar. *Dep:* T-20, T-09.
