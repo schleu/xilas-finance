@@ -19,7 +19,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 ## Fase 2 — Contas (US-2, US-5)
 
 - [x] **T-08 Migração: bills + enums + checks + RLS + índices.** *Dep:* T-05. *Pronto:* teste de RLS; check de débito exige banco/agência/conta.
-- [ ] **T-09 Schema Zod e serviço de contas.** Schema único (regras da US-2), hooks TanStack Query (listar, criar, editar, excluir, marcar como pago). *Dep:* T-08. *Pronto:* testes unitários do schema.
+- [x] **T-09 Schema Zod e serviço de contas.** Schema único (regras da US-2), hooks TanStack Query (listar, criar, editar, excluir, marcar como pago). *Dep:* T-08. *Pronto:* testes unitários do schema.
 - [ ] **T-10 Formulário de conta.** Campos condicionais de débito, erros por campo, valor em BRL. *Dep:* T-09, T-07. *Pronto:* critérios de cadastro da US-2.
 - [ ] **T-11 Lista de contas.** Filtros por mês, categoria, status e atrasadas; máscara de agência/conta; "marcar como pago" em um clique; exclusão com confirmação. *Dep:* T-09. *Pronto:* critérios da US-5.
 
