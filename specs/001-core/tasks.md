@@ -50,7 +50,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 - [x] **T-25 Testes e2e dos fluxos principais.** Login por convite, criar conta, marcar pago, recorrência, chat adicionar/listar. *Dep:* fases 1–5.
 - [x] **T-26 Revisão de segurança.** RLS em todas as tabelas, nenhum dado bancário em logs/LLM, chaves só no servidor. *Dep:* fases 1–5.
 - [x] **T-27 Acessibilidade e responsivo.** Mobile-first, teclado, contraste. *Dep:* fases 2–5.
-- [ ] **T-28 Documentação.** README com setup, variáveis de ambiente e como convidar usuários.
+- [x] **T-28 Documentação.** README com setup, variáveis de ambiente e como convidar usuários.
 
 ## Ordem sugerida
 
