@@ -12,7 +12,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 
 ## Fase 1 — Acesso e categorias (US-0, US-3)
 
-- [ ] **T-05 Migração: profiles, categories, RLS e trigger.** Perfil e 3 categorias padrão na criação do usuário. *Dep:* T-03. *Pronto:* teste de RLS (A não vê B) e categorias padrão criadas.
+- [x] **T-05 Migração: profiles, categories, RLS e trigger.** Perfil e 3 categorias padrão na criação do usuário. *Dep:* T-03. *Pronto:* teste de RLS (A não vê B) e categorias padrão criadas.
 - [ ] **T-06 Auth por convite.** Desligar signup público, tela de login, rota protegida, logout. *Dep:* T-04, T-05. *Pronto:* sem sessão redireciona ao login; convite por e-mail funciona.
 - [ ] **T-07 [P] CRUD de categorias (UI).** Criar, renomear, excluir; bloqueio/reatribuição se em uso; unicidade case-insensitive. *Dep:* T-06. *Pronto:* critérios de US-3.
 
