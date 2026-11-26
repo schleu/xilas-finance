@@ -28,7 +28,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 - [x] **T-12 Migração: funções de leitura.** `monthly_summary`, `spending_by_category`, `monthly_evolution` (somente pagos; pendentes à parte). *Dep:* T-08. *Pronto:* testes SQL com dados de exemplo.
 - [x] **T-13 Cards e navegação de mês.** Total gasto, total pendente, qtd atrasados. *Dep:* T-12, T-11.
 - [x] **T-14 [P] Gráficos.** Gasto por categoria e evolução de 6 meses (shadcn chart). *Dep:* T-12.
-- [ ] **T-15 [P] Próximos vencimentos e estado vazio.** *Dep:* T-11. *Pronto:* critérios da US-1.
+- [x] **T-15 [P] Próximos vencimentos e estado vazio.** *Dep:* T-11. *Pronto:* critérios da US-1.
 
 ## Fase 4 — Recorrência (US-2b)
 

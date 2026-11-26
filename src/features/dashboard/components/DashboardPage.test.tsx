@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as billsApi from "@/features/bills/api/billsApi";
+import type { BillWithCategory } from "@/features/bills/api/billsApi";
 import { currentMonthFortaleza } from "@/features/bills/schemas/billSchema";
 import * as dashboardApi from "@/features/dashboard/api/dashboardApi";
 import { formatMonthYearPT, formatShortMonthPT, monthRange, shiftMonth } from "@/lib/dates";
@@ -13,7 +16,35 @@ vi.mock("@/features/dashboard/api/dashboardApi", () => ({
   getMonthlyEvolution: vi.fn(),
 }));
 
+vi.mock("@/features/bills/api/billsApi", () => ({
+  listBills: vi.fn(),
+  markBillAsPaid: vi.fn(),
+}));
+
 const mockedDashboardApi = vi.mocked(dashboardApi);
+const mockedBillsApi = vi.mocked(billsApi);
+
+function makePendingBill(overrides: Partial<BillWithCategory> = {}): BillWithCategory {
+  return {
+    id: "bill-1",
+    user_id: "user-1",
+    description: "Energia elétrica",
+    company: "Enel",
+    category_id: "cat-fixa",
+    category_name: "Fixa",
+    amount_cents: 25000,
+    payment_type: "pix",
+    bank: null,
+    agency: null,
+    account_number: null,
+    due_date: "2026-11-28",
+    status: "pending",
+    paid_at: null,
+    created_at: "2026-11-01T00:00:00Z",
+    updated_at: "2026-11-01T00:00:00Z",
+    ...overrides,
+  };
+}
 
 function renderDashboard() {
   const queryClient = new QueryClient({
@@ -21,16 +52,20 @@ function renderDashboard() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DashboardPage />
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe("DashboardPage (T-13 & T-14 / US-1)", () => {
+describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedDashboardApi.getSpendingByCategory.mockResolvedValue([]);
     mockedDashboardApi.getMonthlyEvolution.mockResolvedValue([]);
+    mockedBillsApi.listBills.mockResolvedValue([]);
+    mockedBillsApi.markBillAsPaid.mockResolvedValue(makePendingBill({ status: "paid" }));
   });
 
   it("exibe total gasto (somente pagos), total pendente e quantidade de atrasados do mês atual", async () => {
@@ -91,7 +126,7 @@ describe("DashboardPage (T-13 & T-14 / US-1)", () => {
 
     renderDashboard();
 
-    expect(screen.getByText(/^gasto por categoria$/i)).toBeInTheDocument();
+    expect(await screen.findByText(/^gasto por categoria$/i)).toBeInTheDocument();
     expect(screen.getByText(/^evolução mensal$/i)).toBeInTheDocument();
 
     const categoryList = await screen.findByRole("list", {
@@ -115,7 +150,73 @@ describe("DashboardPage (T-13 & T-14 / US-1)", () => {
     expect(mockedDashboardApi.getMonthlyEvolution).toHaveBeenCalledWith(6, currentMonth);
   });
 
-  it("exibe estado vazio nos gráficos quando não há gastos pagos", async () => {
+  it("exibe próximos vencimentos ordenados com badge de atraso e ação rápida de marcar como pago", async () => {
+    const user = userEvent.setup();
+    const currentMonth = currentMonthFortaleza();
+    mockedDashboardApi.getMonthlySummary.mockResolvedValue({
+      month: `${currentMonth}-01`,
+      paid_total_cents: 0,
+      pending_total_cents: 37000,
+      overdue_count: 1,
+    });
+    mockedBillsApi.listBills.mockResolvedValue([
+      makePendingBill({
+        id: "bill-overdue",
+        description: "Água atrasada",
+        due_date: "2020-01-10",
+        amount_cents: 12000,
+      }),
+      makePendingBill({
+        id: "bill-upcoming",
+        description: "Internet fibra",
+        due_date: "2099-12-20",
+        amount_cents: 25000,
+      }),
+    ]);
+
+    renderDashboard();
+
+    const upcomingList = await screen.findByRole("list", { name: /próximos vencimentos/i });
+    const items = within(upcomingList).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    const [firstItem, secondItem] = items;
+    if (!firstItem || !secondItem) throw new Error("Esperava 2 itens nos próximos vencimentos");
+    expect(within(firstItem).getByText("Água atrasada")).toBeInTheDocument();
+    expect(within(firstItem).getByText("Atrasado")).toBeInTheDocument();
+    expect(within(secondItem).getByText("Internet fibra")).toBeInTheDocument();
+    expect(within(secondItem).getByText("Pendente")).toBeInTheDocument();
+
+    await user.click(within(firstItem).getByRole("button", { name: /marcar como pago/i }));
+
+    await waitFor(() => {
+      expect(mockedBillsApi.markBillAsPaid).toHaveBeenCalledWith("bill-overdue", undefined);
+    });
+    expect(mockedBillsApi.listBills).toHaveBeenCalledWith({
+      month: currentMonth,
+      status: "pending",
+    });
+  });
+
+  it("exibe estado vazio claro com atalho para criar a primeira conta quando não há contas no mês", async () => {
+    const currentMonth = currentMonthFortaleza();
+    mockedDashboardApi.getMonthlySummary.mockResolvedValue({
+      month: `${currentMonth}-01`,
+      paid_total_cents: 0,
+      pending_total_cents: 0,
+      overdue_count: 0,
+    });
+    mockedBillsApi.listBills.mockResolvedValue([]);
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText(new RegExp(`nenhuma conta registrada em ${formatMonthYearPT(currentMonth)}`, "i")),
+    ).toBeInTheDocument();
+    const createLink = screen.getByRole("link", { name: /criar primeira conta/i });
+    expect(createLink).toHaveAttribute("href", "/contas");
+  });
+
+  it("exibe estado vazio nos gráficos quando há apenas contas pendentes (sem pagos)", async () => {
     const currentMonth = currentMonthFortaleza();
     mockedDashboardApi.getMonthlySummary.mockResolvedValue({
       month: `${currentMonth}-01`,
@@ -130,6 +231,7 @@ describe("DashboardPage (T-13 & T-14 / US-1)", () => {
         paid_total_cents: 0,
       })),
     );
+    mockedBillsApi.listBills.mockResolvedValue([makePendingBill({ amount_cents: 50000 })]);
 
     renderDashboard();
 
@@ -137,7 +239,7 @@ describe("DashboardPage (T-13 & T-14 / US-1)", () => {
     expect(await screen.findByText(/nenhum gasto pago nos últimos 6 meses/i)).toBeInTheDocument();
   });
 
-  it("permite navegar entre meses e atualiza resumo e gráficos", async () => {
+  it("permite navegar entre meses e atualiza resumo, gráficos e vencimentos", async () => {
     const user = userEvent.setup();
     const currentMonth = currentMonthFortaleza();
     const prevMonth = shiftMonth(currentMonth, -1);
@@ -170,6 +272,10 @@ describe("DashboardPage (T-13 & T-14 / US-1)", () => {
     expect(await screen.findByText(/R\$\s*1\.500,00/)).toBeInTheDocument();
     expect(mockedDashboardApi.getMonthlySummary).toHaveBeenCalledWith(prevMonth);
     expect(mockedDashboardApi.getMonthlyEvolution).toHaveBeenCalledWith(6, prevMonth);
+    expect(mockedBillsApi.listBills).toHaveBeenCalledWith({
+      month: prevMonth,
+      status: "pending",
+    });
 
     const prevRange = monthRange(prevMonth);
     expect(mockedDashboardApi.getSpendingByCategory).toHaveBeenCalledWith(

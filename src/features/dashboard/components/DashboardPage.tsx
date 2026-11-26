@@ -1,7 +1,9 @@
-import { AlertTriangle, ChevronLeft, ChevronRight, CircleCheck, Clock } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, CircleCheck, Clock, Plus } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useBills } from "@/features/bills/hooks/useBills";
 import { currentMonthFortaleza } from "@/features/bills/schemas/billSchema";
 import {
   useMonthlyEvolution,
@@ -12,6 +14,7 @@ import { formatMonthYearPT, shiftMonth } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { MonthlyEvolutionChart } from "./MonthlyEvolutionChart";
 import { SpendingByCategoryChart } from "./SpendingByCategoryChart";
+import { UpcomingBillsCard } from "./UpcomingBillsCard";
 
 export function DashboardPage() {
   const currentMonth = currentMonthFortaleza();
@@ -19,10 +22,21 @@ export function DashboardPage() {
   const summaryQuery = useMonthlySummary(selectedMonth);
   const categoryQuery = useSpendingByCategory(selectedMonth);
   const evolutionQuery = useMonthlyEvolution(selectedMonth, 6);
+  const pendingBillsQuery = useBills({ month: selectedMonth, status: "pending" });
 
   const isCurrentMonth = selectedMonth === currentMonth;
   const monthLabel = formatMonthYearPT(selectedMonth);
   const summary = summaryQuery.data;
+  const pendingBills = pendingBillsQuery.data ?? [];
+
+  const isMonthEmpty =
+    !summaryQuery.isLoading &&
+    !summaryQuery.isError &&
+    !pendingBillsQuery.isLoading &&
+    !pendingBillsQuery.isError &&
+    (summary?.paid_total_cents ?? 0) === 0 &&
+    (summary?.pending_total_cents ?? 0) === 0 &&
+    pendingBills.length === 0;
 
   return (
     <div className="space-y-6">
@@ -162,23 +176,51 @@ export function DashboardPage() {
         </section>
       )}
 
-      <section
-        aria-label="Gráficos de gastos"
-        className="grid gap-4 lg:grid-cols-2"
-      >
-        <SpendingByCategoryChart
-          data={categoryQuery.data ?? []}
-          isLoading={categoryQuery.isLoading}
-          isError={categoryQuery.isError}
-          error={categoryQuery.error}
-        />
-        <MonthlyEvolutionChart
-          data={evolutionQuery.data ?? []}
-          isLoading={evolutionQuery.isLoading}
-          isError={evolutionQuery.isError}
-          error={evolutionQuery.error}
-        />
-      </section>
+      {isMonthEmpty ? (
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Nenhuma conta registrada em {monthLabel}</CardTitle>
+            <CardDescription>
+              Cadastre sua primeira conta para acompanhar gastos, vencimentos e gráficos do mês.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button asChild>
+              <Link to="/contas">
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                Criar primeira conta
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <section
+            aria-label="Gráficos de gastos"
+            className="grid gap-4 lg:grid-cols-2"
+          >
+            <SpendingByCategoryChart
+              data={categoryQuery.data ?? []}
+              isLoading={categoryQuery.isLoading}
+              isError={categoryQuery.isError}
+              error={categoryQuery.error}
+            />
+            <MonthlyEvolutionChart
+              data={evolutionQuery.data ?? []}
+              isLoading={evolutionQuery.isLoading}
+              isError={evolutionQuery.isError}
+              error={evolutionQuery.error}
+            />
+          </section>
+
+          <UpcomingBillsCard
+            bills={pendingBills}
+            isLoading={pendingBillsQuery.isLoading}
+            isError={pendingBillsQuery.isError}
+            error={pendingBillsQuery.error}
+          />
+        </>
+      )}
     </div>
   );
 }
