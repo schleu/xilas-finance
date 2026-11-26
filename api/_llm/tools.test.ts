@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SAFE_CHAT_BILL_COLUMNS,
   runListBillsTool,
+  runProposeBillTool,
   runSpendingReportTool,
 } from "./tools";
 
@@ -96,5 +97,44 @@ describe("Chat read tools (T-21 & T-22 / US-4)", () => {
     expect(result.paid_total_cents).toBe(195000);
     expect(result.pending_total_cents).toBe(42000);
     expect(result.by_category).toHaveLength(2);
+  });
+
+  it("propose_bill valida com Zod sem gravar no banco e devolve apenas campos faltantes quando incompleto (T-23)", () => {
+    const fromMock = vi.fn();
+    const supabase = { from: fromMock } as unknown as SupabaseClient;
+    const ctx = {
+      supabase,
+      categories: [{ id: "11111111-1111-4111-8111-111111111111", name: "Fixa" }],
+      todayIso: "2026-11-26",
+    };
+
+    const incomplete = runProposeBillTool(
+      { description: "Internet", amount_cents: 12000 },
+      ctx,
+    );
+    expect(incomplete.proposedBill).toBeUndefined();
+    expect(incomplete.toolOutput).toMatchObject({ ok: false });
+    expect(fromMock).not.toHaveBeenCalled();
+
+    const valid = runProposeBillTool(
+      {
+        description: "Internet",
+        category_name: "fixa",
+        amount_cents: 12000,
+        payment_type: "pix",
+        due_date: "2026-12-10",
+      },
+      ctx,
+    );
+    expect(valid.proposedBill).toMatchObject({
+      description: "Internet",
+      category_id: "11111111-1111-4111-8111-111111111111",
+      category_name: "Fixa",
+      amount_cents: 12000,
+      payment_type: "pix",
+      due_date: "2026-12-10",
+      status: "pending",
+    });
+    expect(fromMock).not.toHaveBeenCalled();
   });
 });

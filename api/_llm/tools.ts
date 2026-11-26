@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { billSchema } from "../../src/features/bills/schemas/billSchema";
 import { monthRange } from "../../src/lib/dates";
 import type { LlmToolDefinition } from "./provider";
 import type { PromptCategory } from "./prompts";
@@ -72,6 +73,35 @@ export const CHAT_READ_TOOLS: LlmToolDefinition[] = [
         properties: {
           from: { type: "string", description: "Data inicial (YYYY-MM-DD)" },
           to: { type: "string", description: "Data final (YYYY-MM-DD)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_bill",
+      description:
+        "Monta um rascunho validado de conta para confirmação explícita do usuário na interface. NUNCA grava no banco.",
+      parameters: {
+        type: "object",
+        properties: {
+          description: { type: "string", description: "Descrição da conta (1-120 chars)" },
+          company: { type: "string", description: "Empresa (opcional)" },
+          category_id: { type: "string", description: "UUID da categoria do usuário" },
+          category_name: { type: "string", description: "Nome da categoria (alternativa ao ID)" },
+          amount_cents: { type: "integer", description: "Valor em centavos inteiros (> 0)" },
+          payment_type: { type: "string", enum: ["pix", "credit", "debit"] },
+          bank: { type: "string", description: "Obrigatório apenas se payment_type = debit" },
+          agency: { type: "string", description: "Obrigatório apenas se payment_type = debit" },
+          account_number: {
+            type: "string",
+            description: "Obrigatório apenas se payment_type = debit",
+          },
+          due_date: { type: "string", description: "Data de vencimento (YYYY-MM-DD)" },
+          status: { type: "string", enum: ["pending", "paid"] },
+          paid_at: { type: "string", description: "Data de pagamento (YYYY-MM-DD, só se paid)" },
+          recurring: { type: "boolean", description: "Se a conta é recorrente mensalmente" },
         },
       },
     },
@@ -221,6 +251,88 @@ export async function runSpendingReportTool(
   };
 }
 
+export function runProposeBillTool(
+  rawArgs: unknown,
+  ctx: ToolContext,
+): { toolOutput: unknown; proposedBill?: unknown } {
+  const input = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+
+  let resolvedCategory =
+    typeof input.category_id === "string"
+      ? ctx.categories.find((c) => c.id === input.category_id)
+      : undefined;
+
+  if (!resolvedCategory && typeof input.category_name === "string") {
+    const target = input.category_name.trim().toLowerCase();
+    resolvedCategory = ctx.categories.find((c) => c.name.trim().toLowerCase() === target);
+  }
+
+  const candidate = {
+    description: typeof input.description === "string" ? input.description : "",
+    company: typeof input.company === "string" ? input.company : null,
+    category_id: resolvedCategory?.id ?? (typeof input.category_id === "string" ? input.category_id : ""),
+    amount_cents: typeof input.amount_cents === "number" ? input.amount_cents : Number.NaN,
+    payment_type: input.payment_type,
+    bank: input.payment_type === "debit" && typeof input.bank === "string" ? input.bank : null,
+    agency: input.payment_type === "debit" && typeof input.agency === "string" ? input.agency : null,
+    account_number:
+      input.payment_type === "debit" && typeof input.account_number === "string"
+        ? input.account_number
+        : null,
+    due_date: typeof input.due_date === "string" ? input.due_date : "",
+    status: input.status === "paid" ? "paid" : "pending",
+    paid_at:
+      input.status === "paid"
+        ? typeof input.paid_at === "string" && input.paid_at
+          ? input.paid_at
+          : ctx.todayIso
+        : null,
+  };
+
+  const parsed = billSchema.safeParse(candidate);
+  if (!parsed.success) {
+    const missing = parsed.error.issues.map((issue) => ({
+      field: String(issue.path[0] ?? "form"),
+      message: issue.message,
+    }));
+    return {
+      toolOutput: {
+        ok: false,
+        instruction: "Pergunte ao usuário APENAS os campos faltantes ou inválidos listados.",
+        missing_or_invalid: missing,
+      },
+    };
+  }
+
+  const proposedBill = {
+    ...parsed.data,
+    category_name: resolvedCategory?.name ?? "Categoria",
+    recurring: Boolean(input.recurring),
+  };
+
+  // Never include bank details in what is echoed back to the LLM
+  const safeEcho = {
+    description: proposedBill.description,
+    company: proposedBill.company,
+    category_name: proposedBill.category_name,
+    amount_cents: proposedBill.amount_cents,
+    payment_type: proposedBill.payment_type,
+    due_date: proposedBill.due_date,
+    status: proposedBill.status,
+    recurring: proposedBill.recurring,
+  };
+
+  return {
+    toolOutput: {
+      ok: true,
+      status: "awaiting_user_confirmation",
+      note: "Rascunho pronto. Informe ao usuário para conferir e confirmar no cartão abaixo. Nada foi salvo ainda.",
+      draft: safeEcho,
+    },
+    proposedBill,
+  };
+}
+
 export async function executeChatTool(
   name: string,
   rawArguments: string,
@@ -241,6 +353,9 @@ export async function executeChatTool(
     }
     if (name === "spending_report") {
       return { toolOutput: await runSpendingReportTool(parsedArgs, ctx) };
+    }
+    if (name === "propose_bill") {
+      return runProposeBillTool(parsedArgs, ctx);
     }
     return { toolOutput: { error: `Ferramenta desconhecida: ${name}` } };
   } catch (error) {
