@@ -3,6 +3,7 @@ import {
   clampDueDate,
   formatDateBR,
   formatMonthYearPT,
+  formatShortMonthPT,
   lastDayOfMonth,
   monthRange,
   shiftMonth,
@@ -35,5 +36,9 @@ describe("dates", () => {
   it("formata mês e ano em pt-BR sem deslocamento de fuso", () => {
     expect(formatMonthYearPT("2026-11")).toBe("Novembro de 2026");
     expect(formatMonthYearPT("2026-01")).toBe("Janeiro de 2026");
+  });
+  it("formata mês curto para eixos de gráficos", () => {
+    expect(formatShortMonthPT("2026-11-01")).toBe("Nov/26");
+    expect(formatShortMonthPT("2026-01")).toBe("Jan/26");
   });
 });

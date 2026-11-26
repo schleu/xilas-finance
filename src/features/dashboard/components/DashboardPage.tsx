@@ -3,14 +3,22 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { currentMonthFortaleza } from "@/features/bills/schemas/billSchema";
-import { useMonthlySummary } from "@/features/dashboard/hooks/useDashboard";
+import {
+  useMonthlyEvolution,
+  useMonthlySummary,
+  useSpendingByCategory,
+} from "@/features/dashboard/hooks/useDashboard";
 import { formatMonthYearPT, shiftMonth } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
+import { MonthlyEvolutionChart } from "./MonthlyEvolutionChart";
+import { SpendingByCategoryChart } from "./SpendingByCategoryChart";
 
 export function DashboardPage() {
   const currentMonth = currentMonthFortaleza();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const summaryQuery = useMonthlySummary(selectedMonth);
+  const categoryQuery = useSpendingByCategory(selectedMonth);
+  const evolutionQuery = useMonthlyEvolution(selectedMonth, 6);
 
   const isCurrentMonth = selectedMonth === currentMonth;
   const monthLabel = formatMonthYearPT(selectedMonth);
@@ -153,6 +161,24 @@ export function DashboardPage() {
           </Card>
         </section>
       )}
+
+      <section
+        aria-label="Gráficos de gastos"
+        className="grid gap-4 lg:grid-cols-2"
+      >
+        <SpendingByCategoryChart
+          data={categoryQuery.data ?? []}
+          isLoading={categoryQuery.isLoading}
+          isError={categoryQuery.isError}
+          error={categoryQuery.error}
+        />
+        <MonthlyEvolutionChart
+          data={evolutionQuery.data ?? []}
+          isLoading={evolutionQuery.isLoading}
+          isError={evolutionQuery.isError}
+          error={evolutionQuery.error}
+        />
+      </section>
     </div>
   );
 }

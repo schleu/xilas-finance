@@ -1,14 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentMonthFortaleza } from "@/features/bills/schemas/billSchema";
 import * as dashboardApi from "@/features/dashboard/api/dashboardApi";
-import { formatMonthYearPT, shiftMonth } from "@/lib/dates";
+import { formatMonthYearPT, formatShortMonthPT, monthRange, shiftMonth } from "@/lib/dates";
 import { DashboardPage } from "./DashboardPage";
 
 vi.mock("@/features/dashboard/api/dashboardApi", () => ({
   getMonthlySummary: vi.fn(),
+  getSpendingByCategory: vi.fn(),
+  getMonthlyEvolution: vi.fn(),
 }));
 
 const mockedDashboardApi = vi.mocked(dashboardApi);
@@ -24,9 +26,11 @@ function renderDashboard() {
   );
 }
 
-describe("DashboardPage (T-13 / US-1)", () => {
+describe("DashboardPage (T-13 & T-14 / US-1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedDashboardApi.getSpendingByCategory.mockResolvedValue([]);
+    mockedDashboardApi.getMonthlyEvolution.mockResolvedValue([]);
   });
 
   it("exibe total gasto (somente pagos), total pendente e quantidade de atrasados do mês atual", async () => {
@@ -52,7 +56,88 @@ describe("DashboardPage (T-13 / US-1)", () => {
     expect(mockedDashboardApi.getMonthlySummary).toHaveBeenCalledWith(currentMonth);
   });
 
-  it("permite navegar entre meses (anterior, próximo e voltar ao mês atual)", async () => {
+  it("exibe gráficos de gasto por categoria e evolução mensal de 6 meses (somente pagos)", async () => {
+    const currentMonth = currentMonthFortaleza();
+    const { from, to } = monthRange(currentMonth);
+    const evolutionMonths = Array.from({ length: 6 }, (_, idx) => {
+      const m = shiftMonth(currentMonth, idx - 5);
+      return {
+        month: `${m}-01`,
+        paid_total_cents: idx === 5 ? 207050 : idx === 4 ? 150000 : 0,
+      };
+    });
+
+    mockedDashboardApi.getMonthlySummary.mockResolvedValue({
+      month: `${currentMonth}-01`,
+      paid_total_cents: 207050,
+      pending_total_cents: 0,
+      overdue_count: 0,
+    });
+    mockedDashboardApi.getSpendingByCategory.mockResolvedValue([
+      {
+        category_id: "cat-fixa",
+        category_name: "Fixa",
+        paid_total_cents: 162050,
+        bills_count: 2,
+      },
+      {
+        category_id: "cat-var",
+        category_name: "Variável",
+        paid_total_cents: 45000,
+        bills_count: 1,
+      },
+    ]);
+    mockedDashboardApi.getMonthlyEvolution.mockResolvedValue(evolutionMonths);
+
+    renderDashboard();
+
+    expect(screen.getByText(/^gasto por categoria$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^evolução mensal$/i)).toBeInTheDocument();
+
+    const categoryList = await screen.findByRole("list", {
+      name: /detalhamento por categoria/i,
+    });
+    expect(within(categoryList).getByText("Fixa")).toBeInTheDocument();
+    expect(within(categoryList).getByText(/R\$\s*1\.620,50/)).toBeInTheDocument();
+    expect(within(categoryList).getByText("Variável")).toBeInTheDocument();
+    expect(within(categoryList).getByText(/R\$\s*450,00/)).toBeInTheDocument();
+
+    const evolutionList = await screen.findByRole("list", {
+      name: /totais pagos por mês/i,
+    });
+    expect(within(evolutionList).getAllByRole("listitem")).toHaveLength(6);
+    expect(
+      within(evolutionList).getByText(formatShortMonthPT(currentMonth)),
+    ).toBeInTheDocument();
+    expect(within(evolutionList).getByText(/R\$\s*1\.500,00/)).toBeInTheDocument();
+
+    expect(mockedDashboardApi.getSpendingByCategory).toHaveBeenCalledWith(from, to);
+    expect(mockedDashboardApi.getMonthlyEvolution).toHaveBeenCalledWith(6, currentMonth);
+  });
+
+  it("exibe estado vazio nos gráficos quando não há gastos pagos", async () => {
+    const currentMonth = currentMonthFortaleza();
+    mockedDashboardApi.getMonthlySummary.mockResolvedValue({
+      month: `${currentMonth}-01`,
+      paid_total_cents: 0,
+      pending_total_cents: 50000,
+      overdue_count: 0,
+    });
+    mockedDashboardApi.getSpendingByCategory.mockResolvedValue([]);
+    mockedDashboardApi.getMonthlyEvolution.mockResolvedValue(
+      Array.from({ length: 6 }, (_, idx) => ({
+        month: `${shiftMonth(currentMonth, idx - 5)}-01`,
+        paid_total_cents: 0,
+      })),
+    );
+
+    renderDashboard();
+
+    expect(await screen.findByText(/nenhum gasto pago registrado neste mês/i)).toBeInTheDocument();
+    expect(await screen.findByText(/nenhum gasto pago nos últimos 6 meses/i)).toBeInTheDocument();
+  });
+
+  it("permite navegar entre meses e atualiza resumo e gráficos", async () => {
     const user = userEvent.setup();
     const currentMonth = currentMonthFortaleza();
     const prevMonth = shiftMonth(currentMonth, -1);
@@ -84,10 +169,15 @@ describe("DashboardPage (T-13 / US-1)", () => {
     expect(screen.getByText(formatMonthYearPT(prevMonth))).toBeInTheDocument();
     expect(await screen.findByText(/R\$\s*1\.500,00/)).toBeInTheDocument();
     expect(mockedDashboardApi.getMonthlySummary).toHaveBeenCalledWith(prevMonth);
+    expect(mockedDashboardApi.getMonthlyEvolution).toHaveBeenCalledWith(6, prevMonth);
 
-    const backToCurrentButton = screen.getByRole("button", { name: /mês atual/i });
-    await user.click(backToCurrentButton);
+    const prevRange = monthRange(prevMonth);
+    expect(mockedDashboardApi.getSpendingByCategory).toHaveBeenCalledWith(
+      prevRange.from,
+      prevRange.to,
+    );
 
+    await user.click(screen.getByRole("button", { name: /mês atual/i }));
     await waitFor(() => {
       expect(screen.getByText(formatMonthYearPT(currentMonth))).toBeInTheDocument();
     });

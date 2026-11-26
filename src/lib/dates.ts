@@ -57,3 +57,19 @@ export function formatMonthYearPT(month: string): string {
   const formatted = monthYearFormatter.format(new Date(Date.UTC(year, m - 1, 15)));
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
+
+const shortMonthFormatter = new Intl.DateTimeFormat("pt-BR", {
+  month: "short",
+  timeZone: "UTC",
+});
+
+/** Formata "YYYY-MM" ou "YYYY-MM-DD" de forma curta para gráficos (ex.: "Nov/26"). */
+export function formatShortMonthPT(monthOrDate: string): string {
+  const match = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(monthOrDate);
+  if (!match) throw new Error(`Mês inválido: ${monthOrDate}`);
+  const year = Number(match[1]);
+  const m = Number(match[2]);
+  const raw = shortMonthFormatter.format(new Date(Date.UTC(year, m - 1, 15))).replace(/\.$/, "");
+  const label = raw.charAt(0).toUpperCase() + raw.slice(1);
+  return `${label}/${String(year).slice(-2)}`;
+}
