@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BillStatusFilter, BillWithCategory } from "@/features/bills/api/billsApi";
-import { BillForm } from "@/features/bills/components/BillForm";
+import { BillForm, type BillFormSubmitMeta } from "@/features/bills/components/BillForm";
 import {
   useBills,
   useCreateBill,
   useDeleteBill,
   useMarkBillAsPaid,
+  useStopRecurringRule,
   useUpdateBill,
 } from "@/features/bills/hooks/useBills";
 import {
@@ -30,6 +31,7 @@ export function BillsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingBill, setEditingBill] = useState<BillWithCategory | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmStopRuleId, setConfirmStopRuleId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: categories = [] } = useCategories();
@@ -47,18 +49,37 @@ export function BillsPage() {
   const updateMutation = useUpdateBill();
   const deleteMutation = useDeleteBill();
   const markPaidMutation = useMarkBillAsPaid();
+  const stopRecurringMutation = useStopRecurringRule();
 
-  const handleCreate = async (input: BillInput) => {
+  const handleCreate = async (input: BillInput, meta?: BillFormSubmitMeta) => {
     setActionError(null);
-    await createMutation.mutateAsync(input);
+    await createMutation.mutateAsync({ input, recurring: meta?.recurring });
     setShowCreateForm(false);
   };
 
-  const handleUpdate = async (input: BillInput) => {
+  const handleUpdate = async (input: BillInput, meta?: BillFormSubmitMeta) => {
     if (!editingBill) return;
     setActionError(null);
-    await updateMutation.mutateAsync({ id: editingBill.id, input });
+    await updateMutation.mutateAsync({
+      id: editingBill.id,
+      input,
+      scope: meta?.editScope,
+      recurringRuleId: editingBill.recurring_rule_id,
+      originalDueDate: editingBill.due_date,
+    });
     setEditingBill(null);
+  };
+
+  const handleStopRecurring = async (recurringRuleId: string) => {
+    setActionError(null);
+    try {
+      await stopRecurringMutation.mutateAsync(recurringRuleId);
+      setConfirmStopRuleId(null);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Não foi possível encerrar a recorrência.",
+      );
+    }
   };
 
   const handleMarkAsPaid = async (id: string) => {
@@ -253,6 +274,11 @@ export function BillsPage() {
                           <span className={`rounded-full px-2 py-0.5 text-xs ${statusClass}`}>
                             {statusLabel}
                           </span>
+                          {bill.recurring_rule_id && (
+                            <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                              Recorrente
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           {bill.company && <span>{bill.company}</span>}
@@ -295,17 +321,61 @@ export function BillsPage() {
                           >
                             Editar
                           </Button>
+                          {bill.recurring_rule_id && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setConfirmDeleteId(null);
+                                setConfirmStopRuleId(bill.recurring_rule_id ?? null);
+                              }}
+                            >
+                              Encerrar recorrência
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
                             variant="destructive"
-                            onClick={() => setConfirmDeleteId(bill.id)}
+                            onClick={() => {
+                              setConfirmStopRuleId(null);
+                              setConfirmDeleteId(bill.id);
+                            }}
                           >
                             Excluir
                           </Button>
                         </div>
                       </div>
                     </div>
+
+                    {bill.recurring_rule_id && confirmStopRuleId === bill.recurring_rule_id && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 p-3">
+                        <p className="text-sm">
+                          Encerrar recorrência de <strong>{bill.description}</strong>? Os futuros
+                          lançamentos pendentes serão removidos; os pagos permanecem.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={stopRecurringMutation.isPending}
+                            onClick={() => void handleStopRecurring(bill.recurring_rule_id!)}
+                          >
+                            Confirmar encerramento
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmStopRuleId(null)}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {confirmDeleteId === bill.id && (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 p-3">

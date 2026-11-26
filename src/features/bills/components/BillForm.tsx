@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Bill } from "@/features/bills/api/billsApi";
+import type { Bill, RecurringEditScope } from "@/features/bills/api/billsApi";
 import {
   BILL_STATUSES,
   BILL_STATUS_LABELS,
@@ -17,10 +17,15 @@ import {
 import type { Category } from "@/features/categories/api/categoriesApi";
 import { parseBRLToCents } from "@/lib/money";
 
+export type BillFormSubmitMeta = {
+  recurring?: boolean;
+  editScope?: RecurringEditScope;
+};
+
 type Props = {
   categories: Category[];
   initialBill?: Bill;
-  onSubmit: (data: BillInput) => Promise<void> | void;
+  onSubmit: (data: BillInput, meta?: BillFormSubmitMeta) => Promise<void> | void;
   onCancel?: () => void;
   isSubmitting?: boolean;
 };
@@ -57,8 +62,11 @@ export function BillForm({
   const [accountNumber, setAccountNumber] = useState(initialBill?.account_number ?? "");
   const [status, setStatus] = useState<BillStatus>(initialBill?.status ?? "pending");
   const [paidAt, setPaidAt] = useState(initialBill?.paid_at ?? "");
+  const [recurring, setRecurring] = useState(false);
+  const [editScope, setEditScope] = useState<RecurringEditScope>("single");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isEditingRecurring = Boolean(initialBill?.recurring_rule_id);
 
   const handlePaymentTypeChange = (nextType: PaymentType) => {
     setPaymentType(nextType);
@@ -122,7 +130,13 @@ export function BillForm({
 
     setErrors({});
     try {
-      await onSubmit(result.data);
+      if (isEditingRecurring) {
+        await onSubmit(result.data, { editScope });
+      } else if (!initialBill && recurring) {
+        await onSubmit(result.data, { recurring: true });
+      } else {
+        await onSubmit(result.data);
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Não foi possível salvar a conta.");
     }
@@ -284,6 +298,49 @@ export function BillForm({
             )}
           </div>
         </div>
+      )}
+
+      {!initialBill && (
+        <div className="flex items-center gap-2">
+          <input
+            id="bill-recurring"
+            type="checkbox"
+            className="h-4 w-4 rounded border-input"
+            checked={recurring}
+            onChange={(e) => setRecurring(e.target.checked)}
+          />
+          <Label htmlFor="bill-recurring" className="font-normal">
+            Recorrente (gerar automaticamente todo mês)
+          </Label>
+        </div>
+      )}
+
+      {isEditingRecurring && (
+        <fieldset className="space-y-2 rounded-md border bg-muted/30 p-3">
+          <legend className="px-1 text-sm font-medium">Aplicar alterações em</legend>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="recurring-edit-scope"
+                value="single"
+                checked={editScope === "single"}
+                onChange={() => setEditScope("single")}
+              />
+              Só este lançamento
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="recurring-edit-scope"
+                value="future"
+                checked={editScope === "future"}
+                onChange={() => setEditScope("future")}
+              />
+              Este e os futuros pendentes
+            </label>
+          </div>
+        </fieldset>
       )}
 
       {submitError && (

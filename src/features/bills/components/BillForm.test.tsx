@@ -146,4 +146,61 @@ describe("BillForm (T-10 / US-2)", () => {
     expect(screen.getByLabelText(/^agência/i)).toHaveValue("1234");
     expect(screen.getByLabelText(/^conta/i)).toHaveValue("56789-0");
   });
+
+  it("permite marcar nova conta como recorrente (T-17 / US-2b)", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<BillForm categories={categories} onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText(/descrição/i), "Aluguel");
+    await user.type(screen.getByLabelText(/valor/i), "1500,00");
+    await user.type(screen.getByLabelText(/vencimento/i), "2026-12-05");
+    await user.click(screen.getByLabelText(/^recorrente/i));
+    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Aluguel", amount_cents: 150000 }),
+        { recurring: true },
+      );
+    });
+  });
+
+  it("permite escolher escopo 'só este' ou 'este e os futuros pendentes' ao editar conta recorrente (T-17)", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const recurringBill: Bill = {
+      id: "bill-rec-1",
+      user_id: "u1",
+      description: "Academia",
+      company: null,
+      category_id: categories[0]!.id,
+      amount_cents: 12000,
+      payment_type: "credit",
+      bank: null,
+      agency: null,
+      account_number: null,
+      due_date: "2026-12-10",
+      status: "pending",
+      paid_at: null,
+      recurring_rule_id: "rule-1",
+      created_at: "2026-11-26T00:00:00Z",
+      updated_at: "2026-11-26T00:00:00Z",
+    };
+
+    render(<BillForm categories={categories} initialBill={recurringBill} onSubmit={onSubmit} />);
+
+    expect(screen.getByLabelText(/só este lançamento/i)).toBeChecked();
+    await user.click(screen.getByLabelText(/este e os futuros pendentes/i));
+    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Academia" }),
+        { editScope: "future" },
+      );
+    });
+  });
 });

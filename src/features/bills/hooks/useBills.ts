@@ -4,8 +4,10 @@ import {
   deleteBill,
   listBills,
   markBillAsPaid,
+  stopRecurringRule,
   updateBill,
   type BillFilters,
+  type RecurringEditScope,
 } from "@/features/bills/api/billsApi";
 import type { BillInput } from "@/features/bills/schemas/billSchema";
 import { DASHBOARD_QUERY_KEY } from "@/features/dashboard/hooks/useDashboard";
@@ -27,7 +29,12 @@ export function useBills(filters: BillFilters = {}) {
 export function useCreateBill() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: BillInput) => createBill(input),
+    mutationFn: (arg: BillInput | { input: BillInput; recurring?: boolean }) => {
+      if ("input" in arg) {
+        return createBill(arg.input, { recurring: arg.recurring });
+      }
+      return createBill(arg);
+    },
     onSuccess: () => {
       invalidateBillQueries(queryClient);
     },
@@ -37,7 +44,29 @@ export function useCreateBill() {
 export function useUpdateBill() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: BillInput }) => updateBill(id, input),
+    mutationFn: ({
+      id,
+      input,
+      scope,
+      recurringRuleId,
+      originalDueDate,
+    }: {
+      id: string;
+      input: BillInput;
+      scope?: RecurringEditScope;
+      recurringRuleId?: string | null;
+      originalDueDate?: string;
+    }) => updateBill(id, input, { scope, recurringRuleId, originalDueDate }),
+    onSuccess: () => {
+      invalidateBillQueries(queryClient);
+    },
+  });
+}
+
+export function useStopRecurringRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (recurringRuleId: string) => stopRecurringRule(recurringRuleId),
     onSuccess: () => {
       invalidateBillQueries(queryClient);
     },

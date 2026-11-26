@@ -14,6 +14,7 @@ vi.mock("@/features/bills/api/billsApi", () => ({
   updateBill: vi.fn(),
   deleteBill: vi.fn(),
   markBillAsPaid: vi.fn(),
+  stopRecurringRule: vi.fn(),
 }));
 
 vi.mock("@/features/categories/api/categoriesApi", () => ({
@@ -99,6 +100,7 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
     mockedBillsApi.deleteBill.mockResolvedValue(undefined);
     mockedBillsApi.createBill.mockResolvedValue(sampleBills[0]!);
     mockedBillsApi.updateBill.mockResolvedValue(sampleBills[0]!);
+    mockedBillsApi.stopRecurringRule.mockResolvedValue(undefined);
   });
 
   it("exibe contas com valor BRL, status atrasado derivado e agência/conta mascarados", async () => {
@@ -174,5 +176,24 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
     renderPage();
 
     expect(await screen.findByText(/nenhuma conta encontrada/i)).toBeInTheDocument();
+  });
+
+  it("permite encerrar recorrência com confirmação preservando pagos (T-17 / US-2b)", async () => {
+    const user = userEvent.setup();
+    mockedBillsApi.listBills.mockResolvedValue([
+      { ...sampleBills[0]!, recurring_rule_id: "rule-99" },
+    ]);
+    renderPage();
+
+    const billItem = (await screen.findByText("Energia elétrica")).closest("li")!;
+    expect(within(billItem).getByText("Recorrente")).toBeInTheDocument();
+
+    await user.click(within(billItem).getByRole("button", { name: /encerrar recorrência/i }));
+    expect(mockedBillsApi.stopRecurringRule).not.toHaveBeenCalled();
+
+    await user.click(within(billItem).getByRole("button", { name: /confirmar encerramento/i }));
+    await waitFor(() => {
+      expect(mockedBillsApi.stopRecurringRule).toHaveBeenCalledWith("rule-99");
+    });
   });
 });

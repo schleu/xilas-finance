@@ -33,7 +33,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 ## Fase 4 — Recorrência (US-2b)
 
 - [x] **T-16 Migração: recurring_rules + `generate_recurring_bills()` + pg_cron.** Idempotente, ajuste de dia 31, mês atual + 2 seguintes. *Dep:* T-08. *Pronto:* testes SQL (idempotência, fevereiro, regra inativa).
-- [ ] **T-17 UI de recorrência.** Opção "recorrente" no formulário, escolha "só este / este e futuros", encerrar recorrência. *Dep:* T-16, T-10. *Pronto:* critérios da US-2b.
+- [x] **T-17 UI de recorrência.** Opção "recorrente" no formulário, escolha "só este / este e futuros", encerrar recorrência. *Dep:* T-16, T-10. *Pronto:* critérios da US-2b.
 
 ## Fase 5 — Chatbot (US-4)
 
