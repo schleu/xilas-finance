@@ -43,7 +43,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 - [x] **T-21 Ferramenta `list_bills`.** Colunas explícitas sem dados bancários, via JWT do usuário. *Dep:* T-20, T-08. *Pronto:* teste garante que banco/agência/conta nunca vão ao LLM.
 - [x] **T-22 Ferramenta `spending_report`.** Usa `spending_by_category`; números iguais aos da homepage. *Dep:* T-20, T-12.
 - [x] **T-23 `propose_bill` + cartão de confirmação.** Rascunho validado por Zod, bot pergunta só o que falta, cliente grava pelo mesmo serviço da T-09 após confirmar. *Dep:* T-20, T-09.
-- [ ] **T-24 UI do chat.** Janela de conversa, estados de carregamento/erro, invalidação de cache após salvar. *Dep:* T-21, T-22, T-23. *Pronto:* critérios da US-4.
+- [x] **T-24 UI do chat.** Janela de conversa, estados de carregamento/erro, invalidação de cache após salvar. *Dep:* T-21, T-22, T-23. *Pronto:* critérios da US-4.
 
 ## Fase 6 — Fechamento
 

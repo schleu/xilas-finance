@@ -6,16 +6,11 @@ import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { SetPasswordPage } from "@/features/auth/components/SetPasswordPage";
 import { BillsPage } from "@/features/bills/components/BillsPage";
 import { CategoriesPage } from "@/features/categories/components/CategoriesPage";
+import { ChatPage } from "@/features/chat/components/ChatPage";
 import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
 import { AppLayout } from "./AppLayout";
-import { PlaceholderPage } from "./PlaceholderPage";
 
 const queryClient = new QueryClient();
-
-// Cada rota nasce como placeholder e é substituída pela tarefa indicada em specs/001-core/tasks.md.
-const placeholderPages = [
-  { path: "/chat", label: "Chat", task: "T-20…T-24", spec: "US-4" },
-];
 
 export function AppRoutes() {
   return (
@@ -25,15 +20,9 @@ export function AppRoutes() {
         <Route path="/definir-senha" element={<SetPasswordPage />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
-          {placeholderPages.map((page) => (
-            <Route
-              key={page.path}
-              path={page.path}
-              element={<PlaceholderPage title={page.label} task={page.task} spec={page.spec} />}
-            />
-          ))}
           <Route path="/contas" element={<BillsPage />} />
           <Route path="/categorias" element={<CategoriesPage />} />
+          <Route path="/chat" element={<ChatPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
