@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { clampDueDate, formatDateBR, lastDayOfMonth, monthRange } from "./dates";
+import {
+  clampDueDate,
+  formatDateBR,
+  formatMonthYearPT,
+  lastDayOfMonth,
+  monthRange,
+  shiftMonth,
+} from "./dates";
 
 describe("dates", () => {
   it("calcula o último dia do mês, incluindo ano bissexto", () => {
@@ -19,5 +26,14 @@ describe("dates", () => {
   });
   it("devolve o intervalo do mês", () => {
     expect(monthRange("2026-02")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+  });
+  it("avança e retrocede meses cruzando virada de ano", () => {
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2026-11", -5)).toBe("2026-06");
+  });
+  it("formata mês e ano em pt-BR sem deslocamento de fuso", () => {
+    expect(formatMonthYearPT("2026-11")).toBe("Novembro de 2026");
+    expect(formatMonthYearPT("2026-01")).toBe("Janeiro de 2026");
   });
 });

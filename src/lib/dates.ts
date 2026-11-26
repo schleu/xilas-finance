@@ -31,3 +31,29 @@ export function monthRange(month: string): { from: string; to: string } {
     to: `${month}-${String(lastDayOfMonth(year, m)).padStart(2, "0")}`,
   };
 }
+
+/** Soma ou subtrai meses de um mês de referência "YYYY-MM". */
+export function shiftMonth(month: string, delta: number): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) throw new Error(`Mês inválido: ${month}`);
+  const year = Number(match[1]);
+  const m = Number(match[2]);
+  const date = new Date(Date.UTC(year, m - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+const monthYearFormatter = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** Formata "YYYY-MM" para exibição em pt-BR (ex.: "Novembro de 2026"). */
+export function formatMonthYearPT(month: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) throw new Error(`Mês inválido: ${month}`);
+  const year = Number(match[1]);
+  const m = Number(match[2]);
+  const formatted = monthYearFormatter.format(new Date(Date.UTC(year, m - 1, 15)));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
