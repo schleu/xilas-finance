@@ -44,27 +44,27 @@ Para adicionar componentes shadcn/ui: `npx shadcn@latest add <componente>`.
 
 Copie `.env.example` para `.env.local` (desenvolvimento) e configure as mesmas chaves na Vercel (Preview e Production).
 
-### Cliente (públicas — prefixo `VITE_`)
+### Cliente (públicas — prefixo `VITE_FINANCE_`)
 
 | Variável | Descrição |
 |---|---|
-| `VITE_SUPABASE_URL` | URL do projeto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Chave pública `anon` do Supabase (segurança garantida por RLS) |
+| `VITE_FINANCE_SUPABASE_URL` | URL do projeto Supabase |
+| `VITE_FINANCE_SUPABASE_ANON_KEY` | Chave pública `anon` do Supabase (segurança garantida por RLS) |
 
-### Servidor (Vercel Functions `/api/chat` — **nunca** use `VITE_`)
+### Servidor (Vercel Functions `/api/chat` — prefixo `FINANCE_`, **nunca** use `VITE_`)
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `SUPABASE_URL` | Sim | URL do projeto Supabase usada por `/api/chat` |
-| `SUPABASE_ANON_KEY` | Sim | Chave `anon` usada junto ao JWT do usuário autenticado (nunca `service_role`) |
-| `LLM_PRIMARY_BASE_URL` | Sim | Endpoint OpenAI-compatível (ex.: `https://openrouter.ai/api/v1`, `https://api.deepseek.com/v1`, `https://api.together.xyz/v1`) |
-| `LLM_PRIMARY_MODEL` | Sim | Identificador do modelo primário (ex.: `meta-llama/llama-3.3-70b-instruct:free`) |
-| `LLM_PRIMARY_API_KEY` | Sim | Chave da API do provedor primário |
-| `LLM_FALLBACK_BASE_URL` | Não | Endpoint do provedor reserva acionado em erro `429`, `5xx` ou timeout |
-| `LLM_FALLBACK_MODEL` | Não | Modelo do provedor reserva |
-| `LLM_FALLBACK_API_KEY` | Não | Chave da API do provedor reserva |
-| `CHAT_RATE_LIMIT_MAX` | Não | Limite de mensagens por usuário na janela (padrão: `20`) |
-| `CHAT_RATE_LIMIT_WINDOW_MS` | Não | Duração da janela de rate limit em ms (padrão: `3600000` = 1h) |
+| `FINANCE_SUPABASE_URL` | Sim | URL do projeto Supabase usada por `/api/chat` |
+| `FINANCE_SUPABASE_ANON_KEY` | Sim | Chave `anon` usada junto ao JWT do usuário autenticado (nunca `service_role`) |
+| `FINANCE_LLM_PRIMARY_BASE_URL` | Sim | Endpoint OpenAI-compatível (ex.: `https://openrouter.ai/api/v1`, `https://api.deepseek.com/v1`, `https://api.together.xyz/v1`) |
+| `FINANCE_LLM_PRIMARY_MODEL` | Sim | Identificador do modelo primário (ex.: `meta-llama/llama-3.3-70b-instruct:free`) |
+| `FINANCE_LLM_PRIMARY_API_KEY` | Sim | Chave da API do provedor primário |
+| `FINANCE_LLM_FALLBACK_BASE_URL` | Não | Endpoint do provedor reserva acionado em erro `429`, `5xx` ou timeout |
+| `FINANCE_LLM_FALLBACK_MODEL` | Não | Modelo do provedor reserva |
+| `FINANCE_LLM_FALLBACK_API_KEY` | Não | Chave da API do provedor reserva |
+| `FINANCE_CHAT_RATE_LIMIT_MAX` | Não | Limite de mensagens por usuário na janela (padrão: `20`) |
+| `FINANCE_CHAT_RATE_LIMIT_WINDOW_MS` | Não | Duração da janela de rate limit em ms (padrão: `3600000` = 1h) |
 
 > **Nunca** exponha `service_role` ou chaves de LLM no cliente, nem versione `.env` ou `.env.local`.
 

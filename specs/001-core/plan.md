@@ -110,8 +110,8 @@ Usadas pela homepage **e** pelas ferramentas do chat, garantindo números iguais
 **Provedor plugável**
 
 ```
-LLM_PRIMARY_BASE_URL / LLM_PRIMARY_MODEL / LLM_PRIMARY_API_KEY
-LLM_FALLBACK_BASE_URL / LLM_FALLBACK_MODEL / LLM_FALLBACK_API_KEY   (opcional)
+FINANCE_LLM_PRIMARY_BASE_URL / FINANCE_LLM_PRIMARY_MODEL / FINANCE_LLM_PRIMARY_API_KEY
+FINANCE_LLM_FALLBACK_BASE_URL / FINANCE_LLM_FALLBACK_MODEL / FINANCE_LLM_FALLBACK_API_KEY   (opcional)
 ```
 
 - Tenta o primário; em erro 429/5xx/timeout, tenta o reserva; sem reserva, devolve erro amigável.
@@ -140,7 +140,7 @@ specs/            constitution, spec, plan, tasks
 
 - GitHub → Vercel: preview por PR, produção na `main`.
 - Supabase: um projeto de desenvolvimento e um de produção; migrações via Supabase CLI.
-- Variáveis na Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (públicas); `LLM_*` e, se necessário, `SUPABASE_URL`/`SUPABASE_ANON_KEY` da função (privadas).
+- Variáveis na Vercel: `VITE_FINANCE_SUPABASE_URL`, `VITE_FINANCE_SUPABASE_ANON_KEY` (públicas); `FINANCE_LLM_*`, `FINANCE_CHAT_*` e `FINANCE_SUPABASE_URL`/`FINANCE_SUPABASE_ANON_KEY` da função (privadas).
 - CI no GitHub Actions: typecheck, lint, testes e verificação das migrações.
 
 ## 8. Mapeamento spec → plano

@@ -51,6 +51,7 @@ Cada tarefa cabe em um PR pequeno. "Pronto" = critério verificável + definiç�
 - [x] **T-26 Revisão de segurança.** RLS em todas as tabelas, nenhum dado bancário em logs/LLM, chaves só no servidor. *Dep:* fases 1–5.
 - [x] **T-27 Acessibilidade e responsivo.** Mobile-first, teclado, contraste. *Dep:* fases 2–5.
 - [x] **T-28 Documentação.** README com setup, variáveis de ambiente e como convidar usuários.
+- [x] **T-29 Padronização de variáveis de ambiente.** Aplicar prefixo `FINANCE_` nas variáveis de servidor (`FINANCE_*`) e `VITE_FINANCE_` nas variáveis públicas do cliente.
 
 ## Ordem sugerida
 

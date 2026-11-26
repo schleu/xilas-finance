@@ -57,8 +57,8 @@ export interface ChatHandlerDeps {
 }
 
 const defaultRateLimiter = new SlidingWindowRateLimiter(
-  Number(process.env.CHAT_RATE_LIMIT_MAX ?? 20),
-  Number(process.env.CHAT_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000),
+  Number(process.env.FINANCE_CHAT_RATE_LIMIT_MAX ?? 20),
+  Number(process.env.FINANCE_CHAT_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000),
 );
 
 function todayIsoFortalezaServer(): string {
@@ -71,10 +71,11 @@ function todayIsoFortalezaServer(): string {
 }
 
 function defaultCreateUserSupabase(jwt: string): SupabaseClient {
-  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+  const url = process.env.FINANCE_SUPABASE_URL ?? process.env.VITE_FINANCE_SUPABASE_URL;
+  const anonKey =
+    process.env.FINANCE_SUPABASE_ANON_KEY ?? process.env.VITE_FINANCE_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    throw new Error("SUPABASE_URL e SUPABASE_ANON_KEY não configurados no servidor.");
+    throw new Error("FINANCE_SUPABASE_URL e FINANCE_SUPABASE_ANON_KEY não configurados no servidor.");
   }
   return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },

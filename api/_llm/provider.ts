@@ -67,17 +67,17 @@ export const FRIENDLY_LLM_UNAVAILABLE_MESSAGE =
 export function loadLlmConfigsFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): { primary: LlmProviderConfig; fallback: LlmProviderConfig | null } {
-  const primaryBaseUrl = env.LLM_PRIMARY_BASE_URL?.trim();
-  const primaryModel = env.LLM_PRIMARY_MODEL?.trim();
-  const primaryApiKey = env.LLM_PRIMARY_API_KEY?.trim();
+  const primaryBaseUrl = env.FINANCE_LLM_PRIMARY_BASE_URL?.trim();
+  const primaryModel = env.FINANCE_LLM_PRIMARY_MODEL?.trim();
+  const primaryApiKey = env.FINANCE_LLM_PRIMARY_API_KEY?.trim();
 
   if (!primaryBaseUrl || !primaryModel || !primaryApiKey) {
     throw new LlmProviderError(FRIENDLY_LLM_UNAVAILABLE_MESSAGE, 503, false);
   }
 
-  const fallbackBaseUrl = env.LLM_FALLBACK_BASE_URL?.trim();
-  const fallbackModel = env.LLM_FALLBACK_MODEL?.trim();
-  const fallbackApiKey = env.LLM_FALLBACK_API_KEY?.trim();
+  const fallbackBaseUrl = env.FINANCE_LLM_FALLBACK_BASE_URL?.trim();
+  const fallbackModel = env.FINANCE_LLM_FALLBACK_MODEL?.trim();
+  const fallbackApiKey = env.FINANCE_LLM_FALLBACK_API_KEY?.trim();
 
   const fallback =
     fallbackBaseUrl && fallbackModel && fallbackApiKey

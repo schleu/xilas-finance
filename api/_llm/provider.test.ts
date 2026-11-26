@@ -6,12 +6,12 @@ import {
 } from "./provider";
 
 const baseEnv = {
-  LLM_PRIMARY_BASE_URL: "https://primary.example/v1",
-  LLM_PRIMARY_MODEL: "primary-model",
-  LLM_PRIMARY_API_KEY: "sk-primary-secret",
-  LLM_FALLBACK_BASE_URL: "https://fallback.example/v1",
-  LLM_FALLBACK_MODEL: "fallback-model",
-  LLM_FALLBACK_API_KEY: "sk-fallback-secret",
+  FINANCE_LLM_PRIMARY_BASE_URL: "https://primary.example/v1",
+  FINANCE_LLM_PRIMARY_MODEL: "primary-model",
+  FINANCE_LLM_PRIMARY_API_KEY: "sk-primary-secret",
+  FINANCE_LLM_FALLBACK_BASE_URL: "https://fallback.example/v1",
+  FINANCE_LLM_FALLBACK_MODEL: "fallback-model",
+  FINANCE_LLM_FALLBACK_API_KEY: "sk-fallback-secret",
 };
 
 function makeOkResponse(payload: unknown): Response {
@@ -125,9 +125,9 @@ describe("LLM provider layer (T-19 / US-4)", () => {
       createChatCompletion({
         messages: [{ role: "user", content: "oi" }],
         env: {
-          LLM_PRIMARY_BASE_URL: baseEnv.LLM_PRIMARY_BASE_URL,
-          LLM_PRIMARY_MODEL: baseEnv.LLM_PRIMARY_MODEL,
-          LLM_PRIMARY_API_KEY: baseEnv.LLM_PRIMARY_API_KEY,
+          FINANCE_LLM_PRIMARY_BASE_URL: baseEnv.FINANCE_LLM_PRIMARY_BASE_URL,
+          FINANCE_LLM_PRIMARY_MODEL: baseEnv.FINANCE_LLM_PRIMARY_MODEL,
+          FINANCE_LLM_PRIMARY_API_KEY: baseEnv.FINANCE_LLM_PRIMARY_API_KEY,
         },
         fetchFn: fetchMock,
       }),

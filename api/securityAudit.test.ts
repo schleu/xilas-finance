@@ -48,7 +48,7 @@ describe("Revisão de segurança (T-26)", () => {
       const content = readFileSync(file, "utf8");
       expect(content, `${file} não deve referenciar service_role`).not.toMatch(/service_role/i);
       expect(content, `${file} não deve referenciar chaves de LLM`).not.toMatch(
-        /LLM_(PRIMARY|FALLBACK)_API_KEY|VITE_LLM_|VITE_SERVICE_ROLE/i,
+        /(FINANCE_)?LLM_(PRIMARY|FALLBACK)_API_KEY|VITE_(FINANCE_)?LLM_|VITE_(FINANCE_)?SERVICE_ROLE/i,
       );
     }
   });

@@ -17,14 +17,14 @@ Definir a estratégia de integração do chatbot `/api/chat` com provedores grat
 ## Estratégia escolhida
 
 1. **Cliente único OpenAI-compatível via `fetch` (sem SDK proprietário):**
-   - Configurado exclusivamente por variáveis de ambiente no servidor (`LLM_PRIMARY_BASE_URL`, `LLM_PRIMARY_MODEL`, `LLM_PRIMARY_API_KEY` e par opcional `LLM_FALLBACK_*`).
+   - Configurado exclusivamente por variáveis de ambiente no servidor (`FINANCE_LLM_PRIMARY_BASE_URL`, `FINANCE_LLM_PRIMARY_MODEL`, `FINANCE_LLM_PRIMARY_API_KEY` e par opcional `FINANCE_LLM_FALLBACK_*`).
    - Timeout explícito por requisição (`AbortController`, padrão 15 s) para não prender a Vercel Function.
 2. **Tool calling nativo com fallback JSON + Zod:**
    - O cliente envia `tools` no formato OpenAI (`propose_bill`, `list_bills`, `spending_report`).
    - Como alguns modelos gratuitos ignoram `tool_calls` ou devolvem JSON em texto puro, o parser aceita tanto `message.tool_calls` quanto um bloco JSON estruturado validado com Zod; se a validação falhar, devolve a mensagem de erro ao modelo em 1 nova tentativa antes de responder ao usuário.
    - Em qualquer caso, **`propose_bill` nunca grava no banco**: retorna um rascunho validado pelo mesmo `billSchema` (Zod) para confirmação explícita do usuário na UI.
 3. **Fallback automático entre provedores:**
-   - Em erro `429` (rate limit), `5xx` ou `timeout`/erro de rede no provedor primário, o cliente aciona automaticamente o provedor reserva (`LLM_FALLBACK_*`), quando configurado.
+   - Em erro `429` (rate limit), `5xx` ou `timeout`/erro de rede no provedor primário, o cliente aciona automaticamente o provedor reserva (`FINANCE_LLM_FALLBACK_*`), quando configurado.
    - Sem reserva disponível ou se ambos falharem, retorna erro amigável em pt-BR (`503`) sem quebrar o restante do aplicativo.
 
 ## Configuração recomendada
