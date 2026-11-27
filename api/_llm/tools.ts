@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { billSchema } from "../../src/features/bills/schemas/billSchema";
-import { monthRange } from "../../src/lib/dates";
-import type { LlmToolDefinition } from "./provider";
-import type { PromptCategory } from "./prompts";
+import { billSchema } from "../../src/features/bills/schemas/billSchema.js";
+import { monthRange } from "../../src/lib/dates.js";
+import type { LlmToolDefinition } from "./provider.js";
+import type { PromptCategory } from "./prompts.js";
 
 /**
  * Colunas explícitas de `bills` para o chatbot.

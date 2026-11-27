@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { FRIENDLY_LLM_UNAVAILABLE_MESSAGE, LlmProviderError } from "./_llm/provider";
@@ -128,5 +130,33 @@ describe("/api/chat (T-20 / US-4)", () => {
 
     expect(mock.getStatus()).toBe(503);
     expect(mock.getBody()).toEqual({ error: FRIENDLY_LLM_UNAVAILABLE_MESSAGE });
+  });
+
+  it("usa extensão .js explícita em imports relativos de runtime em api/ (compatibilidade ESM na Vercel)", () => {
+    const apiDir = resolve(process.cwd(), "api");
+    const runtimeFiles: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+          walk(full);
+        } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) {
+          runtimeFiles.push(full);
+        }
+      }
+    };
+    walk(apiDir);
+
+    const relativeImportRegex = /\bfrom\s+["'](\.[^"']+)["']/g;
+    for (const file of runtimeFiles) {
+      const content = readFileSync(file, "utf8");
+      for (const match of content.matchAll(relativeImportRegex)) {
+        const specifier = match[1]!;
+        expect(
+          specifier.endsWith(".js"),
+          `Import relativo "${specifier}" em ${file} deve terminar com .js para Node ESM na Vercel`,
+        ).toBe(true);
+      }
+    }
   });
 });

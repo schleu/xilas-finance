@@ -8,10 +8,10 @@ import {
   type LlmCompletionResult,
   type LlmMessage,
   type LlmToolDefinition,
-} from "./_llm/provider";
-import { buildChatSystemPrompt, type PromptCategory } from "./_llm/prompts";
-import { SlidingWindowRateLimiter } from "./_llm/rateLimit";
-import { CHAT_READ_TOOLS, executeChatTool } from "./_llm/tools";
+} from "./_llm/provider.js";
+import { buildChatSystemPrompt, type PromptCategory } from "./_llm/prompts.js";
+import { SlidingWindowRateLimiter } from "./_llm/rateLimit.js";
+import { CHAT_READ_TOOLS, executeChatTool } from "./_llm/tools.js";
 
 export interface ChatHttpRequest {
   method?: string;
