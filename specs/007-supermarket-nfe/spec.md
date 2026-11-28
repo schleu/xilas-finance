@@ -1,6 +1,8 @@
 # Spec 007 — Supermercado, Subitens e Importação de NF-e / NFC-e (CE e BA)
 
-**Status:** rascunho · **Versão:** 0.2 · **Foco:** o quê e por quê (sem decisões de implementação)
+**Status:** aprovada · **Versão:** 0.3 · **Foco:** o quê e por quê (sem decisões de implementação)
+
+> Aprovada em 27/11/2026. Implementação liberada.
 
 ## Objetivo
 

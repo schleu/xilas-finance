@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { billSchema } from "../../src/features/bills/schemas/billSchema.js";
+import { incomeSchema } from "../../src/features/incomes/schemas/incomeSchema.js";
 import { monthRange } from "../../src/lib/dates.js";
 import type { LlmToolDefinition } from "./provider.js";
-import type { PromptCategory } from "./prompts.js";
+import type { PromptCategory, PromptStore } from "./prompts.js";
 
 /**
  * Colunas explícitas de `bills` para o chatbot.
@@ -106,11 +107,32 @@ export const CHAT_READ_TOOLS: LlmToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "propose_income",
+      description:
+        "Monta um rascunho validado de renda para confirmação explícita do usuário na interface. NUNCA grava no banco.",
+      parameters: {
+        type: "object",
+        properties: {
+          description: { type: "string", description: "Descrição da renda (1-120 chars)" },
+          amount_cents: { type: "integer", description: "Valor em centavos inteiros (> 0)" },
+          received_date: { type: "string", description: "Data do recebimento (YYYY-MM-DD)" },
+          nature: { type: "string", enum: ["fixed", "variable"], description: "Fixa ou variável" },
+          income_type_id: { type: "string", description: "UUID do tipo de renda" },
+          income_type_name: { type: "string", description: "Nome do tipo de renda (ex.: Salário, Freela, Outros)" },
+        },
+      },
+    },
+  },
 ];
 
 export interface ToolContext {
   supabase: SupabaseClient;
   categories: PromptCategory[];
+  stores?: PromptStore[];
+  incomeTypes?: PromptCategory[];
   todayIso: string;
 }
 
@@ -267,9 +289,19 @@ export function runProposeBillTool(
     resolvedCategory = ctx.categories.find((c) => c.name.trim().toLowerCase() === target);
   }
 
+  let resolvedStore =
+    typeof input.store_id === "string"
+      ? ctx.stores?.find((s) => s.id === input.store_id)
+      : undefined;
+
+  if (!resolvedStore && typeof input.company === "string" && ctx.stores?.length) {
+    const targetStore = input.company.trim().toLowerCase();
+    resolvedStore = ctx.stores.find((s) => s.name.trim().toLowerCase() === targetStore);
+  }
+
   const candidate = {
     description: typeof input.description === "string" ? input.description : "",
-    company: typeof input.company === "string" ? input.company : null,
+    company: resolvedStore?.name ?? (typeof input.company === "string" ? input.company : null),
     category_id: resolvedCategory?.id ?? (typeof input.category_id === "string" ? input.category_id : ""),
     amount_cents: typeof input.amount_cents === "number" ? input.amount_cents : Number.NaN,
     payment_type: input.payment_type,
@@ -287,6 +319,7 @@ export function runProposeBillTool(
           ? input.paid_at
           : ctx.todayIso
         : null,
+    ...(resolvedStore ? { store_id: resolvedStore.id } : {}),
   };
 
   const parsed = billSchema.safeParse(candidate);
@@ -333,11 +366,69 @@ export function runProposeBillTool(
   };
 }
 
+export function runProposeIncomeTool(
+  rawArgs: unknown,
+  ctx: ToolContext,
+): { toolOutput: unknown; proposedIncome?: unknown } {
+  const input = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
+  const types = ctx.incomeTypes ?? [];
+
+  let resolvedType =
+    typeof input.income_type_id === "string"
+      ? types.find((t) => t.id === input.income_type_id)
+      : undefined;
+
+  if (!resolvedType && typeof input.income_type_name === "string") {
+    const target = input.income_type_name.trim().toLowerCase();
+    resolvedType = types.find((t) => t.name.trim().toLowerCase() === target);
+  }
+
+  const candidate = {
+    description: typeof input.description === "string" ? input.description : "",
+    amount_cents: typeof input.amount_cents === "number" ? input.amount_cents : Number.NaN,
+    received_date: typeof input.received_date === "string" ? input.received_date : ctx.todayIso,
+    nature: input.nature,
+    income_type_id:
+      resolvedType?.id ?? (typeof input.income_type_id === "string" ? input.income_type_id : ""),
+    bank_id: null,
+  };
+
+  const parsed = incomeSchema.safeParse(candidate);
+  if (!parsed.success) {
+    const missing = parsed.error.issues.map((issue) => ({
+      field: String(issue.path[0] ?? "form"),
+      message: issue.message,
+    }));
+    return {
+      toolOutput: {
+        ok: false,
+        instruction: "Pergunte ao usuário APENAS os campos faltantes ou inválidos listados.",
+        missing_or_invalid: missing,
+      },
+    };
+  }
+
+  const proposedIncome = {
+    ...parsed.data,
+    income_type_name: resolvedType?.name ?? "Renda",
+  };
+
+  return {
+    toolOutput: {
+      ok: true,
+      status: "awaiting_user_confirmation",
+      note: "Rascunho de renda pronto. Peça ao usuário para conferir e confirmar no cartão abaixo. Nada foi salvo ainda.",
+      draft: proposedIncome,
+    },
+    proposedIncome,
+  };
+}
+
 export async function executeChatTool(
   name: string,
   rawArguments: string,
   ctx: ToolContext,
-): Promise<{ toolOutput: unknown; proposedBill?: unknown }> {
+): Promise<{ toolOutput: unknown; proposedBill?: unknown; proposedIncome?: unknown }> {
   let parsedArgs: unknown = {};
   if (rawArguments.trim()) {
     try {
@@ -356,6 +447,9 @@ export async function executeChatTool(
     }
     if (name === "propose_bill") {
       return runProposeBillTool(parsedArgs, ctx);
+    }
+    if (name === "propose_income") {
+      return runProposeIncomeTool(parsedArgs, ctx);
     }
     return { toolOutput: { error: `Ferramenta desconhecida: ${name}` } };
   } catch (error) {

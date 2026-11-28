@@ -8,7 +8,28 @@ import * as chatApi from "@/features/chat/api/chatApi";
 import { ChatPage } from "./ChatPage";
 
 vi.mock("@/features/chat/api/chatApi", () => ({
+  fetchChatModels: vi.fn().mockResolvedValue([
+    { id: "primary", label: "Llama 3.3", isDefault: true },
+    { id: "deepseek", label: "DeepSeek", isDefault: false },
+  ]),
   sendChatMessage: vi.fn(),
+}));
+
+vi.mock("@/features/chat/api/chatHistoryApi", () => ({
+  getTodayConversation: vi.fn().mockResolvedValue(null),
+  listConversations: vi.fn().mockResolvedValue([]),
+  listConversationMessages: vi.fn().mockResolvedValue([]),
+  createConversation: vi.fn().mockResolvedValue({
+    id: "conv-1",
+    user_id: "user-1",
+    title: "Nova conversa",
+    conversation_date: "2026-11-27",
+    model_id: "primary",
+    created_at: "2026-11-27T00:00:00Z",
+    updated_at: "2026-11-27T00:00:00Z",
+  }),
+  appendChatMessages: vi.fn().mockResolvedValue(undefined),
+  deleteConversation: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/features/bills/api/billsApi", () => ({

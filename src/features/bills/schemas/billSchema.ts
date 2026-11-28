@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SUPERMARKET_PAYMENT_METHODS } from "./billItemSchema.js";
 
 export const PAYMENT_TYPES = ["pix", "credit", "debit"] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
@@ -51,6 +52,10 @@ export const billSchema = z
       .union([isoDateSchema, z.literal(""), z.null()])
       .optional()
       .transform((value) => (value ? value : null)),
+    store_id: z.string().uuid().nullable().optional(),
+    bank_id: z.string().uuid().nullable().optional(),
+    supermarket_payment_method: z.enum(SUPERMARKET_PAYMENT_METHODS).nullable().optional(),
+    nfe_url: z.string().trim().nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.payment_type === "debit") {

@@ -21,6 +21,10 @@ vi.mock("@/features/bills/api/billsApi", () => ({
   markBillAsPaid: vi.fn(),
 }));
 
+vi.mock("@/features/incomes/api/incomesApi", () => ({
+  getMonthlyIncomeSummary: vi.fn().mockResolvedValue({ month: "2026-11-01", total_income_cents: 0 }),
+}));
+
 const mockedDashboardApi = vi.mocked(dashboardApi);
 const mockedBillsApi = vi.mocked(billsApi);
 
@@ -82,12 +86,14 @@ describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
     expect(screen.getByRole("heading", { name: /^início$/i })).toBeInTheDocument();
     expect(screen.getByText(formatMonthYearPT(currentMonth))).toBeInTheDocument();
 
-    expect(await screen.findByText(/R\$\s*2\.070,50/)).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s*730,00/)).toBeInTheDocument();
+    expect(await screen.findByText(/^R\$\s*2\.070,50$/)).toBeInTheDocument();
+    expect(screen.getByText(/^R\$\s*730,00$/)).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText(/total gasto/i)).toBeInTheDocument();
     expect(screen.getByText(/total pendente/i)).toBeInTheDocument();
     expect(screen.getByText(/atrasados/i)).toBeInTheDocument();
+    expect(screen.getByText(/total de rendas/i)).toBeInTheDocument();
+    expect(screen.getByText(/saldo do mês/i)).toBeInTheDocument();
     expect(mockedDashboardApi.getMonthlySummary).toHaveBeenCalledWith(currentMonth);
   });
 
@@ -210,10 +216,10 @@ describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
     renderDashboard();
 
     expect(
-      await screen.findByText(new RegExp(`nenhuma conta registrada em ${formatMonthYearPT(currentMonth)}`, "i")),
+      await screen.findByText(new RegExp(`nenhuma despesa registrada em ${formatMonthYearPT(currentMonth)}`, "i")),
     ).toBeInTheDocument();
-    const createLink = screen.getByRole("link", { name: /criar primeira conta/i });
-    expect(createLink).toHaveAttribute("href", "/contas");
+    const createLink = screen.getByRole("link", { name: /criar primeira despesa/i });
+    expect(createLink).toHaveAttribute("href", "/despesas");
   });
 
   it("exibe estado vazio nos gráficos quando há apenas contas pendentes (sem pagos)", async () => {
@@ -263,13 +269,13 @@ describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
 
     renderDashboard();
 
-    expect(await screen.findByText(/R\$\s*500,00/)).toBeInTheDocument();
+    expect(await screen.findByText(/^R\$\s*500,00$/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /mês atual/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /mês anterior/i }));
 
     expect(screen.getByText(formatMonthYearPT(prevMonth))).toBeInTheDocument();
-    expect(await screen.findByText(/R\$\s*1\.500,00/)).toBeInTheDocument();
+    expect(await screen.findByText(/^R\$\s*1\.500,00$/)).toBeInTheDocument();
     expect(mockedDashboardApi.getMonthlySummary).toHaveBeenCalledWith(prevMonth);
     expect(mockedDashboardApi.getMonthlyEvolution).toHaveBeenCalledWith(6, prevMonth);
     expect(mockedBillsApi.listBills).toHaveBeenCalledWith({

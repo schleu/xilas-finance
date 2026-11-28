@@ -2,28 +2,45 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Bank } from "@/features/banks/api/banksApi";
 import type { Bill, RecurringEditScope } from "@/features/bills/api/billsApi";
+import {
+  SupermarketItemsSection,
+  draftSubItemsToInputs,
+  type DraftSubItem,
+} from "@/features/bills/components/SupermarketItemsSection";
+import type {
+  BillItemInput,
+  SupermarketPaymentMethod,
+} from "@/features/bills/schemas/billItemSchema";
 import {
   BILL_STATUSES,
   BILL_STATUS_LABELS,
   PAYMENT_TYPES,
   PAYMENT_TYPE_LABELS,
   billSchema,
+  currentMonthFortaleza,
+  maskBankCode,
   todayIsoFortaleza,
   type BillInput,
   type BillStatus,
   type PaymentType,
 } from "@/features/bills/schemas/billSchema";
 import type { Category } from "@/features/categories/api/categoriesApi";
+import type { Store } from "@/features/stores/api/storesApi";
+import { clampDueDate } from "@/lib/dates";
 import { parseBRLToCents } from "@/lib/money";
 
 export type BillFormSubmitMeta = {
   recurring?: boolean;
   editScope?: RecurringEditScope;
+  items?: BillItemInput[];
 };
 
 type Props = {
   categories: Category[];
+  stores?: Store[];
+  banks?: Bank[];
   initialBill?: Bill;
   onSubmit: (data: BillInput, meta?: BillFormSubmitMeta) => Promise<void> | void;
   onCancel?: () => void;
@@ -40,6 +57,8 @@ function centsToInput(cents: number): string {
 
 export function BillForm({
   categories,
+  stores = [],
+  banks = [],
   initialBill,
   onSubmit,
   onCancel,
@@ -47,6 +66,7 @@ export function BillForm({
 }: Props) {
   const [description, setDescription] = useState(initialBill?.description ?? "");
   const [company, setCompany] = useState(initialBill?.company ?? "");
+  const [storeId, setStoreId] = useState(initialBill?.store_id ?? "");
   const [categoryId, setCategoryId] = useState(
     initialBill?.category_id ?? categories[0]?.id ?? "",
   );
@@ -57,6 +77,7 @@ export function BillForm({
   const [paymentType, setPaymentType] = useState<PaymentType>(
     initialBill?.payment_type ?? "pix",
   );
+  const [bankId, setBankId] = useState(initialBill?.bank_id ?? "");
   const [bank, setBank] = useState(initialBill?.bank ?? "");
   const [agency, setAgency] = useState(initialBill?.agency ?? "");
   const [accountNumber, setAccountNumber] = useState(initialBill?.account_number ?? "");
@@ -64,12 +85,49 @@ export function BillForm({
   const [paidAt, setPaidAt] = useState(initialBill?.paid_at ?? "");
   const [recurring, setRecurring] = useState(false);
   const [editScope, setEditScope] = useState<RecurringEditScope>("single");
+  const [supermarketPayment, setSupermarketPayment] = useState<SupermarketPaymentMethod>(
+    (initialBill?.supermarket_payment_method as SupermarketPaymentMethod | null) ?? "credit",
+  );
+  const [nfeUrl, setNfeUrl] = useState(initialBill?.nfe_url ?? "");
+  const [subItems, setSubItems] = useState<DraftSubItem[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isEditingRecurring = Boolean(initialBill?.recurring_rule_id);
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const isSupermarket = selectedCategory?.name.trim().toLowerCase() === "supermercado";
+  const debitBanks = banks.filter((b) => b.has_debit_account);
+  const creditBanks = banks.filter((b) => b.has_credit_card);
+
+  const handleStoreSelect = (nextStoreId: string) => {
+    setStoreId(nextStoreId);
+    const matched = stores.find((s) => s.id === nextStoreId);
+    if (matched) {
+      setCompany(matched.name);
+    }
+  };
+
+  const handleDebitBankSelect = (nextBankId: string) => {
+    setBankId(nextBankId);
+    const matched = debitBanks.find((b) => b.id === nextBankId);
+    if (matched) {
+      setBank(matched.name);
+      setAgency(matched.agency ?? "");
+      setAccountNumber(matched.account_number ?? "");
+    }
+  };
+
+  const handleCreditBankSelect = (nextBankId: string) => {
+    setBankId(nextBankId);
+    const matched = creditBanks.find((b) => b.id === nextBankId);
+    if (matched?.credit_card_due_day && !dueDate) {
+      const [yearStr, monthStr] = currentMonthFortaleza().split("-");
+      setDueDate(clampDueDate(Number(yearStr), Number(monthStr), matched.credit_card_due_day));
+    }
+  };
 
   const handlePaymentTypeChange = (nextType: PaymentType) => {
     setPaymentType(nextType);
+    setBankId("");
     if (nextType !== "debit") {
       setBank("");
       setAgency("");
@@ -110,6 +168,11 @@ export function BillForm({
       due_date: dueDate,
       status,
       paid_at: status === "paid" ? paidAt || todayIsoFortaleza() : null,
+      ...(storeId ? { store_id: storeId } : {}),
+      ...(bankId ? { bank_id: bankId } : {}),
+      ...(isSupermarket
+        ? { supermarket_payment_method: supermarketPayment, nfe_url: nfeUrl || null }
+        : {}),
     };
 
     const result = billSchema.safeParse(candidate);
@@ -129,16 +192,25 @@ export function BillForm({
     }
 
     setErrors({});
+    const parsedItems = isSupermarket ? draftSubItemsToInputs(subItems) : [];
     try {
       if (isEditingRecurring) {
-        await onSubmit(result.data, { editScope });
+        await onSubmit(
+          result.data,
+          parsedItems.length > 0 ? { editScope, items: parsedItems } : { editScope },
+        );
       } else if (!initialBill && recurring) {
-        await onSubmit(result.data, { recurring: true });
+        await onSubmit(
+          result.data,
+          parsedItems.length > 0 ? { recurring: true, items: parsedItems } : { recurring: true },
+        );
+      } else if (parsedItems.length > 0) {
+        await onSubmit(result.data, { items: parsedItems });
       } else {
         await onSubmit(result.data);
       }
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Não foi possível salvar a conta.");
+      setSubmitError(error instanceof Error ? error.message : "Não foi possível salvar a despesa.");
     }
   };
 
@@ -159,7 +231,7 @@ export function BillForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bill-company">Empresa</Label>
+          <Label htmlFor="bill-company">Empresa / Loja</Label>
           <Input
             id="bill-company"
             value={company}
@@ -167,6 +239,25 @@ export function BillForm({
             placeholder="Opcional"
           />
         </div>
+
+        {stores.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="bill-store">Loja cadastrada</Label>
+            <select
+              id="bill-store"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={storeId}
+              onChange={(e) => handleStoreSelect(e.target.value)}
+            >
+              <option value="">Selecionar loja (opcional)</option>
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="bill-category">Categoria *</Label>
@@ -261,43 +352,111 @@ export function BillForm({
         )}
       </div>
 
+      {paymentType === "credit" && creditBanks.length > 0 && (
+        <div className="space-y-1.5 rounded-md border bg-muted/30 p-4">
+          <Label htmlFor="bill-credit-bank">Cartão de crédito cadastrado</Label>
+          <select
+            id="bill-credit-bank"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={bankId}
+            onChange={(e) => handleCreditBankSelect(e.target.value)}
+          >
+            <option value="">Selecionar cartão (opcional)</option>
+            {creditBanks.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+                {b.credit_card_label ? ` (${b.credit_card_label})` : ""} — vence dia{" "}
+                {b.credit_card_due_day}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {paymentType === "debit" && (
-        <div className="grid gap-4 rounded-md border bg-muted/30 p-4 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="bill-bank">Banco *</Label>
-            <Input
-              id="bill-bank"
-              value={bank}
-              aria-invalid={Boolean(errors.bank)}
-              onChange={(e) => setBank(e.target.value)}
-            />
-            {errors.bank && <p className="text-sm text-destructive">{errors.bank}</p>}
-          </div>
+        <div className="space-y-3 rounded-md border bg-muted/30 p-4">
+          {debitBanks.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-debit-bank">Conta bancária cadastrada</Label>
+              <select
+                id="bill-debit-bank"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={bankId}
+                onChange={(e) => handleDebitBankSelect(e.target.value)}
+              >
+                <option value="">Informar manualmente</option>
+                {debitBanks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} · Ag. {maskBankCode(b.agency)} · Conta {maskBankCode(b.account_number)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-bank">Banco *</Label>
+              <Input
+                id="bill-bank"
+                value={bank}
+                aria-invalid={Boolean(errors.bank)}
+                onChange={(e) => setBank(e.target.value)}
+              />
+              {errors.bank && <p className="text-sm text-destructive">{errors.bank}</p>}
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="bill-agency">Agência *</Label>
-            <Input
-              id="bill-agency"
-              value={agency}
-              aria-invalid={Boolean(errors.agency)}
-              onChange={(e) => setAgency(e.target.value)}
-            />
-            {errors.agency && <p className="text-sm text-destructive">{errors.agency}</p>}
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-agency">Agência *</Label>
+              <Input
+                id="bill-agency"
+                value={agency}
+                aria-invalid={Boolean(errors.agency)}
+                onChange={(e) => setAgency(e.target.value)}
+              />
+              {errors.agency && <p className="text-sm text-destructive">{errors.agency}</p>}
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="bill-account">Conta *</Label>
-            <Input
-              id="bill-account"
-              value={accountNumber}
-              aria-invalid={Boolean(errors.account_number)}
-              onChange={(e) => setAccountNumber(e.target.value)}
-            />
-            {errors.account_number && (
-              <p className="text-sm text-destructive">{errors.account_number}</p>
-            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-account">Conta *</Label>
+              <Input
+                id="bill-account"
+                value={accountNumber}
+                aria-invalid={Boolean(errors.account_number)}
+                onChange={(e) => setAccountNumber(e.target.value)}
+              />
+              {errors.account_number && (
+                <p className="text-sm text-destructive">{errors.account_number}</p>
+              )}
+            </div>
           </div>
         </div>
+      )}
+
+      {isSupermarket && (
+        <SupermarketItemsSection
+          supermarketPayment={supermarketPayment}
+          onSupermarketPaymentChange={setSupermarketPayment}
+          nfeUrl={nfeUrl}
+          onNfeUrlChange={setNfeUrl}
+          items={subItems}
+          onItemsChange={setSubItems}
+          billAmountCents={parseBRLToCents(amountText)}
+          onApplySumToBillTotal={(sumCents) => setAmountText(centsToInput(sumCents))}
+          onNfeImported={({ marketName, issuedDate, totalCents }) => {
+            if (marketName) {
+              setCompany(marketName);
+              const match = stores.find(
+                (s) =>
+                  marketName.toLowerCase().includes(s.name.toLowerCase()) ||
+                  s.name.toLowerCase().includes(marketName.toLowerCase()),
+              );
+              if (match) setStoreId(match.id);
+              if (!description.trim()) setDescription(`Supermercado ${marketName}`);
+            }
+            if (issuedDate && !dueDate) setDueDate(issuedDate);
+            if (totalCents) setAmountText(centsToInput(totalCents));
+          }}
+        />
       )}
 
       {!initialBill && (
@@ -351,7 +510,7 @@ export function BillForm({
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Salvando..." : "Salvar conta"}
+          {isSubmitting ? "Salvando..." : "Salvar despesa"}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>

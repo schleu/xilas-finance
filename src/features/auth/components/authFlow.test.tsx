@@ -128,9 +128,10 @@ describe("Auth flow (T-06 / US-0)", () => {
 
     expect(await screen.findByRole("heading", { name: /^início$/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^início$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^contas$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^categorias$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^despesas$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^rendas$/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^chat$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^configurações$/i })).toBeInTheDocument();
     expect(screen.getByText("alice@example.com")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^sair$/i })).toBeInTheDocument();
   });

@@ -29,7 +29,7 @@ describe("BillForm (T-10 / US-2)", () => {
 
     render(<BillForm categories={categories} onSubmit={onSubmit} />);
 
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     expect(await screen.findByText(/informe a descrição/i)).toBeInTheDocument();
     expect(screen.getByText(/informe um valor válido/i)).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("BillForm (T-10 / US-2)", () => {
     await user.type(screen.getByLabelText(/descrição/i), "Energia");
     await user.type(screen.getByLabelText(/valor/i), "250,00");
     await user.type(screen.getByLabelText(/vencimento/i), "2026-12-15");
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     expect(await screen.findByText(/informe o banco/i)).toBeInTheDocument();
     expect(screen.getByText(/informe a agência/i)).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("BillForm (T-10 / US-2)", () => {
     await user.selectOptions(screen.getByLabelText(/tipo de pagamento/i), "pix");
     expect(screen.queryByLabelText(/^banco/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(
@@ -100,7 +100,7 @@ describe("BillForm (T-10 / US-2)", () => {
     const paidAtInput = screen.getByLabelText(/data de pagamento/i) as HTMLInputElement;
     expect(paidAtInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
@@ -157,7 +157,7 @@ describe("BillForm (T-10 / US-2)", () => {
     await user.type(screen.getByLabelText(/valor/i), "1500,00");
     await user.type(screen.getByLabelText(/vencimento/i), "2026-12-05");
     await user.click(screen.getByLabelText(/^recorrente/i));
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(
@@ -194,7 +194,7 @@ describe("BillForm (T-10 / US-2)", () => {
 
     expect(screen.getByLabelText(/só este lançamento/i)).toBeChecked();
     await user.click(screen.getByLabelText(/este e os futuros pendentes/i));
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(

@@ -4,12 +4,14 @@ import {
   FRIENDLY_LLM_UNAVAILABLE_MESSAGE,
   LlmProviderError,
   createChatCompletion,
+  listPublicLlmModels,
   type ChatCompletionOptions,
   type LlmCompletionResult,
   type LlmMessage,
   type LlmToolDefinition,
+  type PublicLlmModelOption,
 } from "./_llm/provider.js";
-import { buildChatSystemPrompt, type PromptCategory } from "./_llm/prompts.js";
+import { buildChatSystemPrompt, type PromptCategory, type PromptStore } from "./_llm/prompts.js";
 import { SlidingWindowRateLimiter } from "./_llm/rateLimit.js";
 import { CHAT_READ_TOOLS, executeChatTool } from "./_llm/tools.js";
 
@@ -34,22 +36,31 @@ const chatRequestSchema = z.object({
     )
     .min(1)
     .max(20),
+  modelId: z.string().trim().min(1).max(60).optional(),
 });
 
 export interface ChatToolExecutionResult {
   toolOutput: unknown;
   proposedBill?: unknown;
+  proposedIncome?: unknown;
 }
 
 export type ChatToolExecutor = (
   name: string,
   rawArguments: string,
-  ctx: { supabase: SupabaseClient; categories: PromptCategory[]; todayIso: string },
+  ctx: {
+    supabase: SupabaseClient;
+    categories: PromptCategory[];
+    stores?: PromptStore[];
+    incomeTypes?: PromptCategory[];
+    todayIso: string;
+  },
 ) => Promise<ChatToolExecutionResult>;
 
 export interface ChatHandlerDeps {
   createUserSupabase?: (jwt: string) => SupabaseClient;
   complete?: (options: ChatCompletionOptions) => Promise<LlmCompletionResult>;
+  listModels?: () => PublicLlmModelOption[];
   rateLimiter?: SlidingWindowRateLimiter;
   tools?: LlmToolDefinition[];
   executeTool?: ChatToolExecutor;
@@ -94,14 +105,15 @@ function extractBearerToken(headers: Record<string, string | string[] | undefine
 export function createChatHandler(deps: ChatHandlerDeps = {}) {
   const createUserSupabase = deps.createUserSupabase ?? defaultCreateUserSupabase;
   const complete = deps.complete ?? createChatCompletion;
+  const listModels = deps.listModels ?? (() => listPublicLlmModels());
   const rateLimiter = deps.rateLimiter ?? defaultRateLimiter;
   const tools = deps.tools ?? CHAT_READ_TOOLS;
   const executeTool = deps.executeTool ?? executeChatTool;
   const getTodayIso = deps.getTodayIso ?? todayIsoFortalezaServer;
 
   return async function handler(req: ChatHttpRequest, res: ChatHttpResponse): Promise<void> {
-    if (req.method !== "POST") {
-      res.status(405).json({ error: "Método não permitido. Use POST." });
+    if (req.method !== "POST" && req.method !== "GET") {
+      res.status(405).json({ error: "Método não permitido. Use GET ou POST." });
       return;
     }
 
@@ -122,6 +134,11 @@ export function createChatHandler(deps: ChatHandlerDeps = {}) {
     const { data: userData, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !userData.user) {
       res.status(401).json({ error: "Sessão inválida ou expirada. Faça login novamente." });
+      return;
+    }
+
+    if (req.method === "GET") {
+      res.status(200).json({ models: listModels() });
       return;
     }
 
@@ -146,15 +163,39 @@ export function createChatHandler(deps: ChatHandlerDeps = {}) {
       .order("name", { ascending: true });
     const categories = (categoriesData ?? []) as PromptCategory[];
 
+    let stores: PromptStore[] = [];
+    try {
+      const { data: storesData } = await supabase
+        .from("stores")
+        .select("id, name, store_type")
+        .order("name", { ascending: true });
+      stores = (storesData ?? []) as PromptStore[];
+    } catch {
+      // Keep default empty stores list
+    }
+
+    let incomeTypes: PromptCategory[] = [];
+    try {
+      const { data: incomeTypesData } = await supabase
+        .from("income_types")
+        .select("id, name")
+        .order("name", { ascending: true });
+      incomeTypes = (incomeTypesData ?? []) as PromptCategory[];
+    } catch {
+      // Keep default empty incomeTypes list
+    }
+
     const todayIso = getTodayIso();
+    const modelId = parsedBody.data.modelId;
     const conversation: LlmMessage[] = [
-      { role: "system", content: buildChatSystemPrompt(todayIso, categories) },
+      { role: "system", content: buildChatSystemPrompt(todayIso, categories, stores) },
       ...parsedBody.data.messages.slice(-12),
     ];
 
     try {
       let proposedBill: unknown = undefined;
-      let completion = await complete({ messages: conversation, tools });
+      let proposedIncome: unknown = undefined;
+      let completion = await complete({ messages: conversation, tools, modelId });
 
       if (completion.toolCalls.length > 0 && executeTool) {
         const assistantToolCalls = completion.toolCalls.map((call) => ({
@@ -173,10 +214,15 @@ export function createChatHandler(deps: ChatHandlerDeps = {}) {
           const toolResult = await executeTool(call.name, call.arguments, {
             supabase,
             categories,
+            stores,
+            incomeTypes,
             todayIso,
           });
           if (toolResult.proposedBill !== undefined) {
             proposedBill = toolResult.proposedBill;
+          }
+          if (toolResult.proposedIncome !== undefined) {
+            proposedIncome = toolResult.proposedIncome;
           }
           conversation.push({
             role: "tool",
@@ -185,18 +231,21 @@ export function createChatHandler(deps: ChatHandlerDeps = {}) {
           });
         }
 
-        completion = await complete({ messages: conversation, tools });
+        completion = await complete({ messages: conversation, tools, modelId });
       }
 
       res.status(200).json({
         reply: completion.content,
         proposedBill,
+        proposedIncome,
         usedFallback: completion.usedFallback,
+        modelId: modelId ?? "primary",
       });
     } catch (error) {
+      const status = error instanceof LlmProviderError ? error.statusCode : 503;
       const message =
         error instanceof LlmProviderError ? error.message : FRIENDLY_LLM_UNAVAILABLE_MESSAGE;
-      res.status(503).json({ error: message });
+      res.status(status).json({ error: message });
     }
   };
 }

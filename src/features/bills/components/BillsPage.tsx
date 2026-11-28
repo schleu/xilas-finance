@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BillStatusFilter, BillWithCategory } from "@/features/bills/api/billsApi";
+import { replaceBillItems } from "@/features/bills/api/billItemsApi";
 import { BillForm, type BillFormSubmitMeta } from "@/features/bills/components/BillForm";
 import {
   useBills,
@@ -20,7 +21,10 @@ import {
   maskBankCode,
   type BillInput,
 } from "@/features/bills/schemas/billSchema";
+import { useBanks } from "@/features/banks/hooks/useBanks";
 import { useCategories } from "@/features/categories/hooks/useCategories";
+import { CsvImportDialog } from "@/features/csvImport/components/CsvImportDialog";
+import { useStores } from "@/features/stores/hooks/useStores";
 import { formatDateBR } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 
@@ -29,12 +33,15 @@ export function BillsPage() {
   const [categoryId, setCategoryId] = useState("");
   const [statusFilter, setStatusFilter] = useState<BillStatusFilter>("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [editingBill, setEditingBill] = useState<BillWithCategory | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmStopRuleId, setConfirmStopRuleId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: categories = [] } = useCategories();
+  const { data: stores = [] } = useStores();
+  const { data: banks = [] } = useBanks();
   const {
     data: bills = [],
     isLoading,
@@ -53,7 +60,10 @@ export function BillsPage() {
 
   const handleCreate = async (input: BillInput, meta?: BillFormSubmitMeta) => {
     setActionError(null);
-    await createMutation.mutateAsync({ input, recurring: meta?.recurring });
+    const created = await createMutation.mutateAsync({ input, recurring: meta?.recurring });
+    if (meta?.items && meta.items.length > 0 && created?.id) {
+      await replaceBillItems(created.id, meta.items);
+    }
     setShowCreateForm(false);
   };
 
@@ -67,6 +77,9 @@ export function BillsPage() {
       recurringRuleId: editingBill.recurring_rule_id,
       originalDueDate: editingBill.due_date,
     });
+    if (meta?.items) {
+      await replaceBillItems(editingBill.id, meta.items);
+    }
     setEditingBill(null);
   };
 
@@ -109,31 +122,52 @@ export function BillsPage() {
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Contas</h1>
+          <h1 className="text-2xl font-semibold">Despesas</h1>
           <p className="text-sm text-muted-foreground">
-            Cadastre, filtre e acompanhe seus lançamentos por mês, categoria e status.
+            Cadastre, filtre e acompanhe suas despesas por mês, categoria e status.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() => {
-            setEditingBill(null);
-            setShowCreateForm((open) => !open);
-          }}
-        >
-          {showCreateForm ? "Fechar formulário" : "Nova conta"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCsvImport((open) => !open)}
+          >
+            Importar CSV
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setEditingBill(null);
+              setShowCreateForm((open) => !open);
+            }}
+          >
+            {showCreateForm ? "Fechar formulário" : "Nova despesa"}
+          </Button>
+        </div>
       </div>
+
+      {showCsvImport && (
+        <CsvImportDialog
+          mode="bills"
+          categories={categories}
+          stores={stores}
+          banks={banks}
+          onClose={() => setShowCsvImport(false)}
+        />
+      )}
 
       {showCreateForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Nova conta</CardTitle>
-            <CardDescription>Preencha os dados do lançamento.</CardDescription>
+            <CardTitle>Nova despesa</CardTitle>
+            <CardDescription>Preencha os dados da despesa.</CardDescription>
           </CardHeader>
           <CardContent>
             <BillForm
               categories={categories}
+              stores={stores}
+              banks={banks}
               onSubmit={handleCreate}
               onCancel={() => setShowCreateForm(false)}
               isSubmitting={createMutation.isPending}
@@ -145,13 +179,15 @@ export function BillsPage() {
       {editingBill && (
         <Card>
           <CardHeader>
-            <CardTitle>Editar conta</CardTitle>
+            <CardTitle>Editar despesa</CardTitle>
             <CardDescription>Atualize os detalhes de {editingBill.description}.</CardDescription>
           </CardHeader>
           <CardContent>
             <BillForm
               key={editingBill.id}
               categories={categories}
+              stores={stores}
+              banks={banks}
               initialBill={editingBill}
               onSubmit={handleUpdate}
               onCancel={() => setEditingBill(null)}
@@ -239,7 +275,7 @@ export function BillsPage() {
           ) : bills.length === 0 ? (
             <div className="space-y-3 py-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Nenhuma conta encontrada para os filtros selecionados.
+                Nenhuma despesa encontrada para os filtros selecionados.
               </p>
               <Button
                 type="button"
@@ -249,7 +285,7 @@ export function BillsPage() {
                   setShowCreateForm(true);
                 }}
               >
-                Cadastrar primeira conta
+                Cadastrar primeira despesa
               </Button>
             </div>
           ) : (

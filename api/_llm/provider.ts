@@ -1,8 +1,32 @@
+import { z } from "zod";
+
 export interface LlmProviderConfig {
   baseUrl: string;
   model: string;
   apiKey: string;
 }
+
+export interface LlmCatalogEntry {
+  id: string;
+  label: string;
+  config: LlmProviderConfig;
+  isDefault: boolean;
+}
+
+export interface PublicLlmModelOption {
+  id: string;
+  label: string;
+  isDefault: boolean;
+}
+
+const catalogEntrySchema = z.object({
+  id: z.string().trim().min(1).max(60),
+  label: z.string().trim().min(1).max(80),
+  baseUrl: z.string().trim().url(),
+  model: z.string().trim().min(1),
+  apiKey: z.string().trim().min(1),
+  isDefault: z.boolean().optional(),
+});
 
 export interface LlmToolDefinition {
   type: "function";
@@ -64,29 +88,95 @@ export class LlmProviderError extends Error {
 export const FRIENDLY_LLM_UNAVAILABLE_MESSAGE =
   "O assistente está temporariamente indisponível. Você pode continuar usando o app normalmente de forma manual.";
 
-export function loadLlmConfigsFromEnv(
+export function loadLlmCatalogFromEnv(
   env: Record<string, string | undefined> = process.env,
-): { primary: LlmProviderConfig; fallback: LlmProviderConfig | null } {
+): LlmCatalogEntry[] {
+  const rawModels = env.FINANCE_LLM_MODELS?.trim();
+  if (rawModels) {
+    try {
+      const parsed = z.array(catalogEntrySchema).min(1).safeParse(JSON.parse(rawModels));
+      if (parsed.success) {
+        const hasExplicitDefault = parsed.data.some((item) => item.isDefault);
+        return parsed.data.map((item, idx) => ({
+          id: item.id,
+          label: item.label,
+          config: { baseUrl: item.baseUrl, model: item.model, apiKey: item.apiKey },
+          isDefault: hasExplicitDefault ? Boolean(item.isDefault) : idx === 0,
+        }));
+      }
+    } catch {
+      // Fallback to PRIMARY/FALLBACK env vars
+    }
+  }
+
   const primaryBaseUrl = env.FINANCE_LLM_PRIMARY_BASE_URL?.trim();
   const primaryModel = env.FINANCE_LLM_PRIMARY_MODEL?.trim();
   const primaryApiKey = env.FINANCE_LLM_PRIMARY_API_KEY?.trim();
 
   if (!primaryBaseUrl || !primaryModel || !primaryApiKey) {
-    throw new LlmProviderError(FRIENDLY_LLM_UNAVAILABLE_MESSAGE, 503, false);
+    return [];
   }
+
+  const entries: LlmCatalogEntry[] = [
+    {
+      id: "primary",
+      label: `Padrão (${primaryModel})`,
+      config: { baseUrl: primaryBaseUrl, model: primaryModel, apiKey: primaryApiKey },
+      isDefault: true,
+    },
+  ];
 
   const fallbackBaseUrl = env.FINANCE_LLM_FALLBACK_BASE_URL?.trim();
   const fallbackModel = env.FINANCE_LLM_FALLBACK_MODEL?.trim();
   const fallbackApiKey = env.FINANCE_LLM_FALLBACK_API_KEY?.trim();
 
-  const fallback =
-    fallbackBaseUrl && fallbackModel && fallbackApiKey
-      ? { baseUrl: fallbackBaseUrl, model: fallbackModel, apiKey: fallbackApiKey }
-      : null;
+  if (fallbackBaseUrl && fallbackModel && fallbackApiKey) {
+    entries.push({
+      id: "fallback",
+      label: `Reserva (${fallbackModel})`,
+      config: { baseUrl: fallbackBaseUrl, model: fallbackModel, apiKey: fallbackApiKey },
+      isDefault: false,
+    });
+  }
+
+  return entries;
+}
+
+export function listPublicLlmModels(
+  env: Record<string, string | undefined> = process.env,
+): PublicLlmModelOption[] {
+  return loadLlmCatalogFromEnv(env).map(({ id, label, isDefault }) => ({
+    id,
+    label,
+    isDefault,
+  }));
+}
+
+export function loadLlmConfigsFromEnv(
+  env: Record<string, string | undefined> = process.env,
+  requestedModelId?: string,
+): { primary: LlmProviderConfig; fallback: LlmProviderConfig | null; selectedModelId: string } {
+  const catalog = loadLlmCatalogFromEnv(env);
+  if (catalog.length === 0) {
+    throw new LlmProviderError(FRIENDLY_LLM_UNAVAILABLE_MESSAGE, 503, false);
+  }
+
+  let selected: LlmCatalogEntry | undefined;
+  if (requestedModelId) {
+    selected = catalog.find((item) => item.id === requestedModelId);
+    if (!selected) {
+      throw new LlmProviderError("Modelo de LLM selecionado não está disponível.", 400, false);
+    }
+  } else {
+    selected = catalog.find((item) => item.isDefault) ?? catalog[0]!;
+  }
+
+  const fallbackEntry = catalog.find((item) => item.id !== selected.id) ?? null;
 
   return {
-    primary: { baseUrl: primaryBaseUrl, model: primaryModel, apiKey: primaryApiKey },
-    fallback,
+    primary: selected.config,
+    fallback: fallbackEntry?.config ?? null,
+    selectedModelId: selected.id,
   };
 }
 
@@ -188,6 +278,7 @@ async function callSingleProvider(
 export interface ChatCompletionOptions {
   messages: LlmMessage[];
   tools?: LlmToolDefinition[];
+  modelId?: string;
   env?: Record<string, string | undefined>;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
@@ -196,11 +287,12 @@ export interface ChatCompletionOptions {
 export async function createChatCompletion({
   messages,
   tools,
+  modelId,
   env = process.env,
   fetchFn = fetch,
   timeoutMs = 15_000,
 }: ChatCompletionOptions): Promise<LlmCompletionResult> {
-  const { primary, fallback } = loadLlmConfigsFromEnv(env);
+  const { primary, fallback } = loadLlmConfigsFromEnv(env, modelId);
 
   try {
     const result = await callSingleProvider(primary, messages, tools, fetchFn, timeoutMs);

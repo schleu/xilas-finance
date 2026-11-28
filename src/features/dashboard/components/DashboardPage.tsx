@@ -10,6 +10,7 @@ import {
   useMonthlySummary,
   useSpendingByCategory,
 } from "@/features/dashboard/hooks/useDashboard";
+import { useMonthlyIncomeSummary } from "@/features/incomes/hooks/useIncomes";
 import { formatMonthYearPT, shiftMonth } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { MonthlyEvolutionChart } from "./MonthlyEvolutionChart";
@@ -20,6 +21,7 @@ export function DashboardPage() {
   const currentMonth = currentMonthFortaleza();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const summaryQuery = useMonthlySummary(selectedMonth);
+  const incomeSummaryQuery = useMonthlyIncomeSummary(selectedMonth);
   const categoryQuery = useSpendingByCategory(selectedMonth);
   const evolutionQuery = useMonthlyEvolution(selectedMonth, 6);
   const pendingBillsQuery = useBills({ month: selectedMonth, status: "pending" });
@@ -179,22 +181,63 @@ export function DashboardPage() {
               </p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total de rendas
+              </CardTitle>
+              <CardDescription>Entradas registradas no mês</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+                {formatBRL(incomeSummaryQuery.data?.total_income_cents ?? 0)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Saldo do mês
+              </CardTitle>
+              <CardDescription>Rendas menos despesas pagas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const balanceCents =
+                  (incomeSummaryQuery.data?.total_income_cents ?? 0) -
+                  (summary?.paid_total_cents ?? 0);
+                return (
+                  <p
+                    className={
+                      balanceCents < 0
+                        ? "text-2xl font-bold tracking-tight text-destructive"
+                        : "text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400"
+                    }
+                  >
+                    {formatBRL(balanceCents)}
+                  </p>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </section>
       )}
 
       {isMonthEmpty ? (
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>Nenhuma conta registrada em {monthLabel}</CardTitle>
+            <CardTitle>Nenhuma despesa registrada em {monthLabel}</CardTitle>
             <CardDescription>
-              Cadastre sua primeira conta para acompanhar gastos, vencimentos e gráficos do mês.
+              Cadastre sua primeira despesa para acompanhar gastos, vencimentos e gráficos do mês.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button asChild>
-              <Link to="/contas">
+              <Link to="/despesas">
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Criar primeira conta
+                Criar primeira despesa
               </Link>
             </Button>
           </CardContent>

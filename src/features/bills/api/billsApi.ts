@@ -24,6 +24,10 @@ export type Bill = {
   status: BillStatus;
   paid_at: string | null;
   recurring_rule_id?: string | null;
+  store_id?: string | null;
+  bank_id?: string | null;
+  supermarket_payment_method?: string | null;
+  nfe_url?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,7 +51,7 @@ type RawBillRow = Bill & {
 };
 
 const BILL_SELECT =
-  "id, user_id, description, company, category_id, amount_cents, payment_type, bank, agency, account_number, due_date, status, paid_at, recurring_rule_id, created_at, updated_at, categories(name)";
+  "id, user_id, description, company, category_id, amount_cents, payment_type, bank, agency, account_number, due_date, status, paid_at, recurring_rule_id, store_id, bank_id, supermarket_payment_method, nfe_url, created_at, updated_at, categories(name)";
 
 function mapBillRow(row: RawBillRow): BillWithCategory {
   const category = Array.isArray(row.categories) ? row.categories[0] : row.categories;

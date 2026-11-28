@@ -31,6 +31,21 @@ vi.mock("@/features/categories/api/categoriesApi", () => ({
   listCategories: vi.fn(),
 }));
 
+vi.mock("@/features/stores/api/storesApi", () => ({
+  listStores: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/features/banks/api/banksApi", () => ({
+  listBanks: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/features/incomes/api/incomesApi", () => ({
+  getMonthlyIncomeSummary: vi.fn().mockResolvedValue({ month: "2026-11-01", total_income_cents: 0 }),
+  listIncomes: vi.fn().mockResolvedValue([]),
+  listIncomeTypes: vi.fn().mockResolvedValue([]),
+  createIncome: vi.fn(),
+}));
+
 vi.mock("@/features/bills/api/billsApi", () => ({
   listBills: vi.fn(),
   createBill: vi.fn(),
@@ -47,7 +62,25 @@ vi.mock("@/features/dashboard/api/dashboardApi", () => ({
 }));
 
 vi.mock("@/features/chat/api/chatApi", () => ({
+  fetchChatModels: vi.fn().mockResolvedValue([]),
   sendChatMessage: vi.fn(),
+}));
+
+vi.mock("@/features/chat/api/chatHistoryApi", () => ({
+  getTodayConversation: vi.fn().mockResolvedValue(null),
+  listConversations: vi.fn().mockResolvedValue([]),
+  listConversationMessages: vi.fn().mockResolvedValue([]),
+  createConversation: vi.fn().mockResolvedValue({
+    id: "conv-e2e",
+    user_id: "user-e2e",
+    title: "E2E",
+    conversation_date: "2026-11-27",
+    model_id: null,
+    created_at: "2026-11-27T00:00:00Z",
+    updated_at: "2026-11-27T00:00:00Z",
+  }),
+  appendChatMessages: vi.fn().mockResolvedValue(undefined),
+  deleteConversation: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockedAuthApi = vi.mocked(authApi);
@@ -189,18 +222,18 @@ describe("Fluxos principais E2E (T-25)", () => {
     await user.click(screen.getByRole("button", { name: /salvar senha/i }));
 
     expect(await screen.findByRole("heading", { name: /^início$/i })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /criar primeira conta/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /criar primeira despesa/i })).toBeInTheDocument();
 
-    // 2. Ir para Contas e cadastrar uma conta recorrente
-    await user.click(screen.getByRole("link", { name: /criar primeira conta/i }));
-    expect(await screen.findByRole("heading", { name: /^contas$/i })).toBeInTheDocument();
+    // 2. Ir para Despesas e cadastrar uma despesa recorrente
+    await user.click(screen.getByRole("link", { name: /criar primeira despesa/i }));
+    expect(await screen.findByRole("heading", { name: /^despesas$/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /nova conta/i }));
+    await user.click(screen.getByRole("button", { name: /nova despesa/i }));
     await user.type(screen.getByLabelText(/descrição/i), "Aluguel");
     await user.type(screen.getByLabelText(/valor/i), "1500,00");
     await user.type(screen.getByLabelText(/vencimento/i), `${currentMonth}-15`);
     await user.click(screen.getByLabelText(/^recorrente/i));
-    await user.click(screen.getByRole("button", { name: /salvar conta/i }));
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     expect(await screen.findByText("Aluguel")).toBeInTheDocument();
     expect(screen.getByText("Recorrente")).toBeInTheDocument();
@@ -254,8 +287,8 @@ describe("Fluxos principais E2E (T-25)", () => {
     await user.click(screen.getByRole("button", { name: /confirmar e salvar/i }));
     expect(await screen.findByText(/conta salva com sucesso/i)).toBeInTheDocument();
 
-    // 5. Verificar que a conta criada via chat aparece imediatamente em Contas
-    await user.click(screen.getByRole("link", { name: /^contas$/i }));
+    // 5. Verificar que a despesa criada via chat aparece imediatamente em Despesas
+    await user.click(screen.getByRole("link", { name: /^despesas$/i }));
     expect(await screen.findByText("Internet fibra")).toBeInTheDocument();
   });
 });

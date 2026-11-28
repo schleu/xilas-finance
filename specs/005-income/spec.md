@@ -1,6 +1,8 @@
 # Spec 005 — Área de Renda (Receitas, Saldo na Homepage e Cadastro pelo Chat)
 
-**Status:** rascunho · **Versão:** 0.1 · **Foco:** o quê e por quê (sem decisões de implementação)
+**Status:** aprovada · **Versão:** 0.2 · **Foco:** o quê e por quê (sem decisões de implementação)
+
+> Aprovada em 27/11/2026. Implementação liberada.
 
 ## Objetivo
 

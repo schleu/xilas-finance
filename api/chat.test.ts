@@ -46,11 +46,30 @@ function createFakeSupabase(userId: string | null) {
 }
 
 describe("/api/chat (T-20 / US-4)", () => {
-  it("rejeita métodos diferentes de POST com 405", async () => {
+  it("rejeita métodos diferentes de GET e POST com 405", async () => {
     const handler = createChatHandler();
     const mock = createMockRes();
-    await handler({ method: "GET", headers: {} }, mock.res);
+    await handler({ method: "DELETE", headers: {} }, mock.res);
     expect(mock.getStatus()).toBe(405);
+  });
+
+  it("lista modelos pré-configurados em GET /api/chat autenticado sem expor chaves (004 / T-02)", async () => {
+    const handler = createChatHandler({
+      createUserSupabase: () => createFakeSupabase("user-1"),
+      listModels: () => [
+        { id: "primary", label: "Llama 3.3", isDefault: true },
+        { id: "deepseek", label: "DeepSeek R1", isDefault: false },
+      ],
+    });
+    const mock = createMockRes();
+    await handler({ method: "GET", headers: { authorization: "Bearer valid-jwt" } }, mock.res);
+    expect(mock.getStatus()).toBe(200);
+    expect(mock.getBody()).toEqual({
+      models: [
+        { id: "primary", label: "Llama 3.3", isDefault: true },
+        { id: "deepseek", label: "DeepSeek R1", isDefault: false },
+      ],
+    });
   });
 
   it("rejeita requisições sem JWT ou com JWT inválido com 401", async () => {

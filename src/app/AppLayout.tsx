@@ -5,9 +5,10 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const navLinks = [
   { path: "/", label: "Início" },
-  { path: "/contas", label: "Contas" },
-  { path: "/categorias", label: "Categorias" },
+  { path: "/despesas", label: "Despesas" },
+  { path: "/rendas", label: "Rendas" },
   { path: "/chat", label: "Chat" },
+  { path: "/configuracoes", label: "Configurações" },
 ];
 
 export function AppLayout() {

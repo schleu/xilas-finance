@@ -5,9 +5,10 @@ import { LoginPage } from "@/features/auth/components/LoginPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { SetPasswordPage } from "@/features/auth/components/SetPasswordPage";
 import { BillsPage } from "@/features/bills/components/BillsPage";
-import { CategoriesPage } from "@/features/categories/components/CategoriesPage";
 import { ChatPage } from "@/features/chat/components/ChatPage";
 import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
+import { IncomesPage } from "@/features/incomes/components/IncomesPage";
+import { SettingsPage } from "@/features/settings/components/SettingsPage";
 import { AppLayout } from "./AppLayout";
 import { ThemeProvider } from "./ThemeProvider";
 
@@ -22,8 +23,14 @@ export function AppRoutes() {
           <Route path="/definir-senha" element={<SetPasswordPage />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/contas" element={<BillsPage />} />
-            <Route path="/categorias" element={<CategoriesPage />} />
+            <Route path="/despesas" element={<BillsPage />} />
+            <Route path="/contas" element={<Navigate to="/despesas" replace />} />
+            <Route path="/rendas" element={<IncomesPage />} />
+            <Route path="/configuracoes" element={<SettingsPage />} />
+            <Route
+              path="/categorias"
+              element={<Navigate to="/configuracoes?aba=categorias" replace />}
+            />
             <Route path="/chat" element={<ChatPage />} />
           </Route>
         </Route>

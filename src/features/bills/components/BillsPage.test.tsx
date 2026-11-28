@@ -21,6 +21,14 @@ vi.mock("@/features/categories/api/categoriesApi", () => ({
   listCategories: vi.fn(),
 }));
 
+vi.mock("@/features/stores/api/storesApi", () => ({
+  listStores: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/features/banks/api/banksApi", () => ({
+  listBanks: vi.fn().mockResolvedValue([]),
+}));
+
 const mockedBillsApi = vi.mocked(billsApi);
 const mockedCategoriesApi = vi.mocked(categoriesApi);
 
@@ -175,7 +183,7 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
     mockedBillsApi.listBills.mockResolvedValue([]);
     renderPage();
 
-    expect(await screen.findByText(/nenhuma conta encontrada/i)).toBeInTheDocument();
+    expect(await screen.findByText(/nenhuma despesa encontrada/i)).toBeInTheDocument();
   });
 
   it("permite encerrar recorrência com confirmação preservando pagos (T-17 / US-2b)", async () => {
