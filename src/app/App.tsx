@@ -9,24 +9,27 @@ import { CategoriesPage } from "@/features/categories/components/CategoriesPage"
 import { ChatPage } from "@/features/chat/components/ChatPage";
 import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
 import { AppLayout } from "./AppLayout";
+import { ThemeProvider } from "./ThemeProvider";
 
 const queryClient = new QueryClient();
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/definir-senha" element={<SetPasswordPage />} />
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/contas" element={<BillsPage />} />
-          <Route path="/categorias" element={<CategoriesPage />} />
-          <Route path="/chat" element={<ChatPage />} />
+    <ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/definir-senha" element={<SetPasswordPage />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/contas" element={<BillsPage />} />
+            <Route path="/categorias" element={<CategoriesPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+          </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ThemeProvider>
   );
 }
 

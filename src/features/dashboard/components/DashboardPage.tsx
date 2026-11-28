@@ -112,7 +112,10 @@ export function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total gasto
                 </CardTitle>
-                <CircleCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                <CircleCheck
+                  className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                  aria-hidden="true"
+                />
               </div>
               <CardDescription>Somente lançamentos pagos no mês</CardDescription>
             </CardHeader>
@@ -129,7 +132,10 @@ export function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total pendente
                 </CardTitle>
-                <Clock className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                <Clock
+                  className="h-4 w-4 text-amber-600 dark:text-amber-400"
+                  aria-hidden="true"
+                />
               </div>
               <CardDescription>Lançamentos ainda não pagos</CardDescription>
             </CardHeader>

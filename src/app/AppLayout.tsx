@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { ThemeToggle } from "./ThemeToggle";
 
 const navLinks = [
   { path: "/", label: "Início" },
@@ -47,7 +48,8 @@ export function AppLayout() {
           </nav>
         </div>
 
-        <div className="flex items-center justify-between gap-3 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end sm:gap-3">
+          <ThemeToggle />
           {session?.user.email && (
             <span className="truncate text-sm text-muted-foreground">{session.user.email}</span>
           )}

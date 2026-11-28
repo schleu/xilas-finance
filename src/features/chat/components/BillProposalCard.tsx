@@ -72,7 +72,9 @@ export function BillProposalCard({
 
       <CardFooter className="flex flex-wrap gap-2 pt-2">
         {status === "saved" ? (
-          <p className="text-xs font-medium text-emerald-600">Conta salva com sucesso.</p>
+          <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            Conta salva com sucesso.
+          </p>
         ) : status === "cancelled" ? (
           <p className="text-xs text-muted-foreground">Cadastro cancelado.</p>
         ) : (
