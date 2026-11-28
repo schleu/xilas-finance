@@ -63,6 +63,7 @@ const sampleBills: BillWithCategory[] = [
     agency: "991234",
     account_number: "885678",
     due_date: "2020-01-10",
+    reference_month: "2020-01-01",
     status: "pending",
     paid_at: null,
     created_at: "2026-11-26T00:00:00Z",
@@ -81,6 +82,7 @@ const sampleBills: BillWithCategory[] = [
     agency: null,
     account_number: null,
     due_date: "2026-11-20",
+    reference_month: "2026-11-01",
     status: "paid",
     paid_at: "2026-11-19",
     created_at: "2026-11-26T00:00:00Z",
@@ -99,7 +101,7 @@ function renderPage() {
   );
 }
 
-describe("BillsPage (T-11 / US-2 & US-5)", () => {
+describe("BillsPage (T-11 & 012 / US-2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedCategoriesApi.listCategories.mockResolvedValue(categories);
@@ -111,29 +113,39 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
     mockedBillsApi.stopRecurringRule.mockResolvedValue(undefined);
   });
 
-  it("exibe contas com valor BRL, status atrasado derivado e agência/conta mascarados", async () => {
+  it("exibe despesas em tabela por colunas com ordenação e agência/conta mascarados", async () => {
+    const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByText("Energia elétrica")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByText(/R\$\s*250,00/)).toBeInTheDocument();
     expect(screen.getByText(/10\/01\/2020/)).toBeInTheDocument();
+    expect(screen.getByText("01/2020")).toBeInTheDocument();
     expect(screen.getByText("Atrasado")).toBeInTheDocument();
 
-    // Agência e conta devem aparecer mascarados e nunca completos na lista
     expect(screen.getByText(/••••1234/)).toBeInTheDocument();
     expect(screen.getByText(/••••5678/)).toBeInTheDocument();
     expect(screen.queryByText(/991234/)).not.toBeInTheDocument();
     expect(screen.queryByText(/885678/)).not.toBeInTheDocument();
+
+    // Ordenar por Valor crescente -> Internet fibra (120,50) vem primeiro
+    await user.click(screen.getByRole("button", { name: /^valor$/i }));
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]!).getByText("Internet fibra")).toBeInTheDocument();
   });
 
-  it("filtra contas por mês, categoria e status incluindo atrasadas", async () => {
+  it("abre filtros em modal e permite limpar filtros", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await screen.findByText("Energia elétrica");
+    await user.click(screen.getByRole("button", { name: /^filtros$/i }));
 
-    await user.selectOptions(screen.getByLabelText(/filtrar por categoria/i), categories[0]!.id);
-    await user.selectOptions(screen.getByLabelText(/filtrar por status/i), "overdue");
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/filtrar por categoria/i), categories[0]!.id);
+    await user.selectOptions(within(dialog).getByLabelText(/filtrar por status/i), "overdue");
+    await user.click(within(dialog).getByRole("button", { name: /aplicar/i }));
 
     await waitFor(() => {
       expect(mockedBillsApi.listBills).toHaveBeenLastCalledWith(
@@ -143,36 +155,48 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
         }),
       );
     });
+
+    await user.click(screen.getByRole("button", { name: /limpar filtros/i }));
+    await waitFor(() => {
+      expect(mockedBillsApi.listBills).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          categoryId: undefined,
+          status: "all",
+        }),
+      );
+    });
   });
 
-  it("marca conta pendente como paga em um clique", async () => {
+  it("marca conta pendente como paga via botão de ícone", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    const billItem = (await screen.findByText("Energia elétrica")).closest("li")!;
-    await user.click(within(billItem).getByRole("button", { name: /marcar como pago/i }));
+    const row = (await screen.findByText("Energia elétrica")).closest("tr")!;
+    await user.click(within(row).getByRole("button", { name: /marcar como pago/i }));
 
     await waitFor(() => {
       expect(mockedBillsApi.markBillAsPaid).toHaveBeenCalledWith("bill-1", undefined);
     });
   });
 
-  it("exibe dados bancários completos ao editar e exige confirmação ao excluir", async () => {
+  it("abre modal de edição com dados bancários completos e exige confirmação em modal ao excluir", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    const billItem = (await screen.findByText("Energia elétrica")).closest("li")!;
-    await user.click(within(billItem).getByRole("button", { name: /^editar$/i }));
+    const row = (await screen.findByText("Energia elétrica")).closest("tr")!;
+    await user.click(within(row).getByRole("button", { name: /^editar$/i }));
 
-    expect(await screen.findByLabelText(/^agência/i)).toHaveValue("991234");
-    expect(screen.getByLabelText(/^conta/i)).toHaveValue("885678");
+    const editDialog = await screen.findByRole("dialog");
+    expect(within(editDialog).getByLabelText(/^agência/i)).toHaveValue("991234");
+    expect(within(editDialog).getByLabelText(/^conta/i)).toHaveValue("885678");
 
-    await user.click(screen.getByRole("button", { name: /^cancelar$/i }));
+    await user.click(within(editDialog).getByRole("button", { name: /^cancelar$/i }));
 
-    await user.click(within(billItem).getByRole("button", { name: /^excluir$/i }));
+    await user.click(within(row).getByRole("button", { name: /^excluir$/i }));
     expect(mockedBillsApi.deleteBill).not.toHaveBeenCalled();
 
-    await user.click(within(billItem).getByRole("button", { name: /confirmar exclusão/i }));
+    const deleteDialog = await screen.findByRole("dialog");
+    await user.click(within(deleteDialog).getByRole("button", { name: /confirmar exclusão/i }));
 
     await waitFor(() => {
       expect(mockedBillsApi.deleteBill).toHaveBeenCalledWith("bill-1");
@@ -193,13 +217,14 @@ describe("BillsPage (T-11 / US-2 & US-5)", () => {
     ]);
     renderPage();
 
-    const billItem = (await screen.findByText("Energia elétrica")).closest("li")!;
-    expect(within(billItem).getByText("Recorrente")).toBeInTheDocument();
+    const row = (await screen.findByText("Energia elétrica")).closest("tr")!;
+    expect(within(row).getByText("Recorrente")).toBeInTheDocument();
 
-    await user.click(within(billItem).getByRole("button", { name: /encerrar recorrência/i }));
+    await user.click(within(row).getByRole("button", { name: /encerrar recorrência/i }));
     expect(mockedBillsApi.stopRecurringRule).not.toHaveBeenCalled();
 
-    await user.click(within(billItem).getByRole("button", { name: /confirmar encerramento/i }));
+    const stopDialog = await screen.findByRole("dialog");
+    await user.click(within(stopDialog).getByRole("button", { name: /confirmar encerramento/i }));
     await waitFor(() => {
       expect(mockedBillsApi.stopRecurringRule).toHaveBeenCalledWith("rule-99");
     });

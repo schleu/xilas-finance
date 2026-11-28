@@ -45,7 +45,7 @@ function renderPage() {
   );
 }
 
-describe("CategoriesPage (T-07 / US-3)", () => {
+describe("CategoriesPage (T-07 & 013 / US-2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedApi.listCategories.mockResolvedValue([...defaultCategories]);
@@ -67,16 +67,19 @@ describe("CategoriesPage (T-07 / US-3)", () => {
     mockedApi.deleteCategory.mockResolvedValue(undefined);
   });
 
-  it("lista as categorias padrão e permite criar nova categoria", async () => {
+  it("lista as categorias padrão em tabela e permite criar nova categoria via modal", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByText("Fixa")).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Fixa")).toBeInTheDocument();
     expect(screen.getByText("Variável")).toBeInTheDocument();
     expect(screen.getByText("Cartão de Crédito")).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/nova categoria/i), "Lazer");
-    await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
+    await user.click(screen.getByRole("button", { name: /nova categoria/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/nome da categoria/i), "Lazer");
+    await user.click(within(dialog).getByRole("button", { name: /^adicionar$/i }));
 
     await waitFor(() => {
       expect(mockedApi.createCategory).toHaveBeenCalledWith("Lazer");
@@ -89,51 +92,54 @@ describe("CategoriesPage (T-07 / US-3)", () => {
 
     await screen.findByText("Fixa");
 
-    await user.type(screen.getByLabelText(/nova categoria/i), "  fixa  ");
-    await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
+    await user.click(screen.getByRole("button", { name: /nova categoria/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/nome da categoria/i), "  fixa  ");
+    await user.click(within(dialog).getByRole("button", { name: /^adicionar$/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       /já existe uma categoria com este nome/i,
     );
     expect(mockedApi.createCategory).not.toHaveBeenCalled();
   });
 
-  it("permite renomear uma categoria e bloqueia renomear para nome já existente", async () => {
+  it("permite editar uma categoria via modal e bloqueia renomear para nome já existente", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    const fixaItem = (await screen.findByText("Fixa")).closest("li")!;
-    await user.click(within(fixaItem).getByRole("button", { name: /renomear/i }));
+    const fixaRow = (await screen.findByText("Fixa")).closest("tr")!;
+    await user.click(within(fixaRow).getByRole("button", { name: /^editar$/i }));
 
-    const renameInput = within(fixaItem).getByLabelText(/novo nome/i);
+    const dialog = await screen.findByRole("dialog");
+    const renameInput = within(dialog).getByLabelText(/nome da categoria/i);
     await user.clear(renameInput);
     await user.type(renameInput, "VARIÁVEL");
-    await user.click(within(fixaItem).getByRole("button", { name: /salvar/i }));
+    await user.click(within(dialog).getByRole("button", { name: /^salvar$/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       /já existe uma categoria com este nome/i,
     );
     expect(mockedApi.renameCategory).not.toHaveBeenCalled();
 
     await user.clear(renameInput);
     await user.type(renameInput, "Moradia");
-    await user.click(within(fixaItem).getByRole("button", { name: /salvar/i }));
+    await user.click(within(dialog).getByRole("button", { name: /^salvar$/i }));
 
     await waitFor(() => {
       expect(mockedApi.renameCategory).toHaveBeenCalledWith("cat-1", "Moradia");
     });
   });
 
-  it("exclui categoria sem contas após confirmação", async () => {
+  it("exclui categoria sem contas após confirmação em modal", async () => {
     const user = userEvent.setup();
     mockedApi.countBillsInCategory.mockResolvedValue(0);
     renderPage();
 
-    const fixaItem = (await screen.findByText("Fixa")).closest("li")!;
-    await user.click(within(fixaItem).getByRole("button", { name: /^excluir$/i }));
+    const fixaRow = (await screen.findByText("Fixa")).closest("tr")!;
+    await user.click(within(fixaRow).getByRole("button", { name: /^excluir$/i }));
 
-    const confirmBtn = await within(fixaItem).findByRole("button", { name: /confirmar exclusão/i });
-    await user.click(confirmBtn);
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /confirmar exclusão/i }));
 
     await waitFor(() => {
       expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-1", undefined);
@@ -145,15 +151,16 @@ describe("CategoriesPage (T-07 / US-3)", () => {
     mockedApi.countBillsInCategory.mockResolvedValue(3);
     renderPage();
 
-    const fixaItem = (await screen.findByText("Fixa")).closest("li")!;
-    await user.click(within(fixaItem).getByRole("button", { name: /^excluir$/i }));
+    const fixaRow = (await screen.findByText("Fixa")).closest("tr")!;
+    await user.click(within(fixaRow).getByRole("button", { name: /^excluir$/i }));
 
-    expect(await within(fixaItem).findByText(/3 conta\(s\) vinculada\(s\)/i)).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/3 conta\(s\) vinculada\(s\)/i)).toBeInTheDocument();
 
-    const reassignBtn = within(fixaItem).getByRole("button", { name: /reatribuir e excluir/i });
+    const reassignBtn = within(dialog).getByRole("button", { name: /reatribuir e excluir/i });
     expect(reassignBtn).toBeDisabled();
 
-    const select = within(fixaItem).getByLabelText(/reatribuir contas para/i);
+    const select = within(dialog).getByLabelText(/reatribuir contas para/i);
     await user.selectOptions(select, "cat-2");
 
     expect(reassignBtn).toBeEnabled();

@@ -143,7 +143,18 @@ describe("Fluxos principais E2E (T-25)", () => {
 
     mockedBillsApi.createBill.mockImplementation(async (input, options) => {
       const created: BillWithCategory = {
-        ...input,
+        description: input.description,
+        company: input.company ?? null,
+        category_id: input.category_id,
+        amount_cents: input.amount_cents,
+        payment_type: input.payment_type,
+        bank: input.bank ?? null,
+        agency: input.agency ?? null,
+        account_number: input.account_number ?? null,
+        due_date: input.due_date,
+        reference_month: input.reference_month ?? `${input.due_date.slice(0, 7)}-01`,
+        status: input.status,
+        paid_at: input.paid_at ?? null,
         id: `bill-${store.length + 1}`,
         user_id: "user-e2e",
         category_name: "Fixa",
@@ -222,15 +233,16 @@ describe("Fluxos principais E2E (T-25)", () => {
     await user.click(screen.getByRole("button", { name: /salvar senha/i }));
 
     expect(await screen.findByRole("heading", { name: /^início$/i })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /criar primeira despesa/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /registrar primeira despesa/i })).toBeInTheDocument();
 
     // 2. Ir para Despesas e cadastrar uma despesa recorrente
-    await user.click(screen.getByRole("link", { name: /criar primeira despesa/i }));
+    await user.click(screen.getByRole("link", { name: /registrar primeira despesa/i }));
     expect(await screen.findByRole("heading", { name: /^despesas$/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /nova despesa/i }));
     await user.type(screen.getByLabelText(/descrição/i), "Aluguel");
     await user.type(screen.getByLabelText(/valor/i), "1500,00");
+    await user.clear(screen.getByLabelText(/vencimento/i));
     await user.type(screen.getByLabelText(/vencimento/i), `${currentMonth}-15`);
     await user.click(screen.getByLabelText(/^recorrente/i));
     await user.click(screen.getByRole("button", { name: /salvar despesa/i }));

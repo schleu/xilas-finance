@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Bank } from "@/features/banks/api/banksApi";
 import type { Bill, RecurringEditScope } from "@/features/bills/api/billsApi";
+import { StoreAutocomplete } from "@/features/bills/components/StoreAutocomplete";
 import {
   SupermarketItemsSection,
   draftSubItemsToInputs,
@@ -29,7 +30,7 @@ import {
 import type { Category } from "@/features/categories/api/categoriesApi";
 import type { Store } from "@/features/stores/api/storesApi";
 import { clampDueDate } from "@/lib/dates";
-import { parseBRLToCents } from "@/lib/money";
+import { centsToBRInput, normalizeDecimalInput, parseBRLToCents } from "@/lib/money";
 
 export type BillFormSubmitMeta = {
   recurring?: boolean;
@@ -49,12 +50,6 @@ type Props = {
 
 type FieldErrors = Partial<Record<string, string>>;
 
-function centsToInput(cents: number): string {
-  const intPart = Math.trunc(cents / 100);
-  const decPart = String(Math.abs(cents % 100)).padStart(2, "0");
-  return `${intPart},${decPart}`;
-}
-
 export function BillForm({
   categories,
   stores = [],
@@ -71,9 +66,12 @@ export function BillForm({
     initialBill?.category_id ?? categories[0]?.id ?? "",
   );
   const [amountText, setAmountText] = useState(
-    initialBill ? centsToInput(initialBill.amount_cents) : "",
+    initialBill ? centsToBRInput(initialBill.amount_cents) : "",
   );
-  const [dueDate, setDueDate] = useState(initialBill?.due_date ?? "");
+  const [dueDate, setDueDate] = useState(initialBill?.due_date ?? todayIsoFortaleza());
+  const [referenceMonth, setReferenceMonth] = useState(
+    initialBill?.reference_month ? initialBill.reference_month.slice(0, 7) : "",
+  );
   const [paymentType, setPaymentType] = useState<PaymentType>(
     initialBill?.payment_type ?? "pix",
   );
@@ -92,19 +90,12 @@ export function BillForm({
   const [subItems, setSubItems] = useState<DraftSubItem[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+
   const isEditingRecurring = Boolean(initialBill?.recurring_rule_id);
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const isSupermarket = selectedCategory?.name.trim().toLowerCase() === "supermercado";
   const debitBanks = banks.filter((b) => b.has_debit_account);
   const creditBanks = banks.filter((b) => b.has_credit_card);
-
-  const handleStoreSelect = (nextStoreId: string) => {
-    setStoreId(nextStoreId);
-    const matched = stores.find((s) => s.id === nextStoreId);
-    if (matched) {
-      setCompany(matched.name);
-    }
-  };
 
   const handleDebitBankSelect = (nextBankId: string) => {
     setBankId(nextBankId);
@@ -155,7 +146,8 @@ export function BillForm({
     event.preventDefault();
     setSubmitError(null);
 
-    const parsedCents = parseBRLToCents(amountText);
+    const normalizedAmount = normalizeDecimalInput(amountText);
+    const parsedCents = parseBRLToCents(normalizedAmount);
     const candidate = {
       description,
       company,
@@ -166,6 +158,7 @@ export function BillForm({
       agency: paymentType === "debit" ? agency : null,
       account_number: paymentType === "debit" ? accountNumber : null,
       due_date: dueDate,
+      reference_month: referenceMonth || null,
       status,
       paid_at: status === "paid" ? paidAt || todayIsoFortaleza() : null,
       ...(storeId ? { store_id: storeId } : {}),
@@ -232,32 +225,17 @@ export function BillForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="bill-company">Empresa / Loja</Label>
-          <Input
+          <StoreAutocomplete
             id="bill-company"
             value={company}
-            onChange={(e) => setCompany(e.target.value)}
+            stores={stores}
             placeholder="Opcional"
+            onChange={(nextCompany, matchedId) => {
+              setCompany(nextCompany);
+              setStoreId(matchedId);
+            }}
           />
         </div>
-
-        {stores.length > 0 && (
-          <div className="space-y-1.5">
-            <Label htmlFor="bill-store">Loja cadastrada</Label>
-            <select
-              id="bill-store"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={storeId}
-              onChange={(e) => handleStoreSelect(e.target.value)}
-            >
-              <option value="">Selecionar loja (opcional)</option>
-              {stores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="bill-category">Categoria *</Label>
@@ -286,6 +264,7 @@ export function BillForm({
             value={amountText}
             aria-invalid={Boolean(errors.amount_cents)}
             onChange={(e) => setAmountText(e.target.value)}
+            onBlur={() => setAmountText((prev) => normalizeDecimalInput(prev))}
             placeholder="0,00"
           />
           {errors.amount_cents && (
@@ -303,6 +282,23 @@ export function BillForm({
             onChange={(e) => setDueDate(e.target.value)}
           />
           {errors.due_date && <p className="text-sm text-destructive">{errors.due_date}</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="bill-reference-month">Mês/Ano de referência</Label>
+          <Input
+            id="bill-reference-month"
+            type="month"
+            value={referenceMonth}
+            aria-invalid={Boolean(errors.reference_month)}
+            onChange={(e) => setReferenceMonth(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Opcional: se vazio, usa o mês do vencimento.
+          </p>
+          {errors.reference_month && (
+            <p className="text-sm text-destructive">{errors.reference_month}</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -441,7 +437,7 @@ export function BillForm({
           items={subItems}
           onItemsChange={setSubItems}
           billAmountCents={parseBRLToCents(amountText)}
-          onApplySumToBillTotal={(sumCents) => setAmountText(centsToInput(sumCents))}
+          onApplySumToBillTotal={(sumCents) => setAmountText(centsToBRInput(sumCents))}
           onNfeImported={({ marketName, issuedDate, totalCents }) => {
             if (marketName) {
               setCompany(marketName);
@@ -453,8 +449,8 @@ export function BillForm({
               if (match) setStoreId(match.id);
               if (!description.trim()) setDescription(`Supermercado ${marketName}`);
             }
-            if (issuedDate && !dueDate) setDueDate(issuedDate);
-            if (totalCents) setAmountText(centsToInput(totalCents));
+            if (issuedDate) setDueDate(issuedDate);
+            if (totalCents) setAmountText(centsToBRInput(totalCents));
           }}
         />
       )}
@@ -508,15 +504,15 @@ export function BillForm({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Salvando..." : "Salvar despesa"}
-        </Button>
+      <div className="flex flex-wrap justify-end gap-2">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
         )}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Salvando..." : "Salvar despesa"}
+        </Button>
       </div>
     </form>
   );

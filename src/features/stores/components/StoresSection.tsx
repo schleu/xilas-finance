@@ -1,8 +1,26 @@
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { IconTooltipButton } from "@/components/ui/icon-tooltip-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Store } from "@/features/stores/api/storesApi";
 import {
   useCreateStore,
@@ -33,11 +51,13 @@ export function StoresSection() {
   const updateMutation = useUpdateStore();
   const deleteMutation = useDeleteStore();
 
+  const [showFormModal, setShowFormModal] = useState(false);
   const [name, setName] = useState("");
   const [storeType, setStoreType] = useState<StoreType>("online");
   const [storeSubtype, setStoreSubtype] = useState<StoreSubtype>("supermarket");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingStore, setDeletingStore] = useState<Store | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const resetForm = () => {
@@ -45,12 +65,31 @@ export function StoresSection() {
     setStoreType("online");
     setStoreSubtype("supermarket");
     setEditingId(null);
-    setActionError(null);
+    setFormError(null);
+    setShowFormModal(false);
+  };
+
+  const openCreateModal = () => {
+    setName("");
+    setStoreType("online");
+    setStoreSubtype("supermarket");
+    setEditingId(null);
+    setFormError(null);
+    setShowFormModal(true);
+  };
+
+  const startEdit = (store: Store) => {
+    setFormError(null);
+    setEditingId(store.id);
+    setName(store.name);
+    setStoreType(store.store_type);
+    setStoreSubtype(store.store_subtype ?? "other");
+    setShowFormModal(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setActionError(null);
+    setFormError(null);
 
     const parsed = storeSchema.safeParse({
       name,
@@ -58,12 +97,12 @@ export function StoresSection() {
       store_subtype: storeType === "physical" ? storeSubtype : null,
     });
     if (!parsed.success) {
-      setActionError(parsed.error.issues[0]?.message ?? "Dados inválidos.");
+      setFormError(parsed.error.issues[0]?.message ?? "Dados inválidos.");
       return;
     }
 
     if (hasDuplicateStoreName(stores, parsed.data.name, editingId ?? undefined)) {
-      setActionError("Já existe uma loja com este nome.");
+      setFormError("Já existe uma loja com este nome.");
       return;
     }
 
@@ -75,113 +114,124 @@ export function StoresSection() {
       }
       resetForm();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Não foi possível salvar a loja.");
+      setFormError(error instanceof Error ? error.message : "Não foi possível salvar a loja.");
     }
-  };
-
-  const startEdit = (store: Store) => {
-    setActionError(null);
-    setConfirmDeleteId(null);
-    setEditingId(store.id);
-    setName(store.name);
-    setStoreType(store.store_type);
-    setStoreSubtype(store.store_subtype ?? "other");
   };
 
   const handleDelete = async (id: string) => {
     setActionError(null);
     try {
       await deleteMutation.mutateAsync(id);
-      setConfirmDeleteId(null);
+      setDeletingStore(null);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Não foi possível excluir a loja.");
     }
   };
 
-  const onlineStores = stores.filter((s) => s.store_type === "online");
-  const supermarketStores = stores.filter(
-    (s) => s.store_type === "physical" && s.store_subtype === "supermarket",
-  );
-  const otherPhysicalStores = stores.filter(
-    (s) => s.store_type === "physical" && s.store_subtype !== "supermarket",
-  );
-
-  const renderStoreList = (title: string, items: Store[]) => (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhuma loja cadastrada neste grupo.</p>
-      ) : (
-        <ul className="divide-y rounded-md border px-3">
-          {items.map((store) => (
-            <li key={store.id} className="space-y-2 py-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{store.name}</span>
-                  {store.is_default && (
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                      Padrão
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => startEdit(store)}>
-                    Editar
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setConfirmDeleteId(store.id)}
-                  >
-                    Excluir
-                  </Button>
-                </div>
-              </div>
-              {confirmDeleteId === store.id && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 p-2.5 text-sm">
-                  <span>
-                    Excluir a loja <strong>{store.name}</strong>?
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => void handleDelete(store.id)}
-                    >
-                      Confirmar exclusão
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          {actionError}
+        </p>
+      )}
+
+      {loadError && (
+        <p role="alert" className="text-sm text-destructive">
+          Não foi possível carregar suas lojas.
+        </p>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle>{editingId ? "Editar loja" : "Nova loja"}</CardTitle>
-          <CardDescription>
-            Cadastre lojas online e físicas (incluindo supermercados) para vincular às suas despesas.
-          </CardDescription>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Lojas</CardTitle>
+            <CardDescription>
+              Cadastre lojas online e físicas (incluindo supermercados) para usar no autocomplete de
+              despesas.
+            </CardDescription>
+          </div>
+          <Button type="button" size="sm" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nova loja
+          </Button>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-4 sm:grid-cols-3" noValidate>
+          {isLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Carregando lojas...
+            </p>
+          ) : stores.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhuma loja cadastrada.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Segmento</TableHead>
+                  <TableHead>Origem</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stores.map((store) => (
+                  <TableRow key={store.id}>
+                    <TableCell className="font-medium">{store.name}</TableCell>
+                    <TableCell>{STORE_TYPE_LABELS[store.store_type]}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {store.store_type === "physical" && store.store_subtype
+                        ? STORE_SUBTYPE_LABELS[store.store_subtype]
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                        {store.is_default ? "Padrão" : "Personalizada"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <IconTooltipButton
+                          label="Editar"
+                          icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
+                          onClick={() => startEdit(store)}
+                        />
+                        <IconTooltipButton
+                          label="Excluir"
+                          icon={<Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />}
+                          onClick={() => setDeletingStore(store)}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal: Nova / Editar loja */}
+      <Dialog
+        open={showFormModal}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar loja" : "Nova loja"}</DialogTitle>
+            <DialogDescription>
+              Informe o nome e a classificação da loja.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="store-name">Nome da loja *</Label>
               <Input
@@ -226,51 +276,53 @@ export function StoresSection() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2 sm:col-span-3">
+            {formError && (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancelar
+              </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                 {editingId ? "Salvar alterações" : "Adicionar loja"}
               </Button>
-              {editingId && (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
-      {actionError && (
-        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {actionError}
-        </p>
-      )}
-
-      {loadError && (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar suas lojas.
-        </p>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Suas lojas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {isLoading ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Carregando lojas...
-            </p>
-          ) : (
-            <>
-              {renderStoreList("Online", onlineStores)}
-              {renderStoreList("Físicas — Supermercados", supermarketStores)}
-              {otherPhysicalStores.length > 0 &&
-                renderStoreList("Físicas — Outras", otherPhysicalStores)}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {/* Modal: Confirmar exclusão */}
+      <Dialog
+        open={Boolean(deletingStore)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingStore(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir loja</DialogTitle>
+            <DialogDescription>
+              Excluir a loja <strong>{deletingStore?.name}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeletingStore(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deletingStore && void handleDelete(deletingStore.id)}
+            >
+              Confirmar exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

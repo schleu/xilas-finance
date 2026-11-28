@@ -218,7 +218,7 @@ describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
     expect(
       await screen.findByText(new RegExp(`nenhuma despesa registrada em ${formatMonthYearPT(currentMonth)}`, "i")),
     ).toBeInTheDocument();
-    const createLink = screen.getByRole("link", { name: /criar primeira despesa/i });
+    const createLink = screen.getByRole("link", { name: /registrar primeira despesa/i });
     expect(createLink).toHaveAttribute("href", "/despesas");
   });
 
@@ -288,6 +288,10 @@ describe("DashboardPage (T-13, T-14 & T-15 / US-1)", () => {
       prevRange.from,
       prevRange.to,
     );
+
+    const monthNav = screen.getByRole("navigation", { name: /navegação de mês/i });
+    const navButtons = within(monthNav).getAllByRole("button");
+    expect(navButtons[0]).toHaveTextContent(/mês atual/i);
 
     await user.click(screen.getByRole("button", { name: /mês atual/i }));
     await waitFor(() => {

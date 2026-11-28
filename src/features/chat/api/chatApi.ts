@@ -14,12 +14,39 @@ export interface SendChatResponse {
   modelId?: string;
 }
 
+export function getChatEdgeFunctionUrl(): string {
+  const supabaseUrl = (import.meta.env.VITE_FINANCE_SUPABASE_URL ?? "").trim().replace(/\/+$/, "");
+  if (!supabaseUrl) {
+    throw new Error("Defina VITE_FINANCE_SUPABASE_URL para conectar ao assistente.");
+  }
+  return `${supabaseUrl}/functions/v1/chat`;
+}
+
+function buildEdgeHeaders(accessToken: string, includeJson = false): Record<string, string> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  const anonKey = (import.meta.env.VITE_FINANCE_SUPABASE_ANON_KEY ?? "").trim();
+  if (anonKey) {
+    headers.apikey = anonKey;
+  }
+  if (includeJson) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
+}
+
 export async function fetchChatModels(accessToken: string): Promise<ChatModelOption[]> {
-  const response = await fetch("/api/chat", {
+  let url: string;
+  try {
+    url = getChatEdgeFunctionUrl();
+  } catch {
+    return [];
+  }
+
+  const response = await fetch(url, {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: buildEdgeHeaders(accessToken),
   });
   if (!response.ok) return [];
   try {
@@ -35,12 +62,9 @@ export async function sendChatMessage(
   accessToken: string,
   modelId?: string,
 ): Promise<SendChatResponse> {
-  const response = await fetch("/api/chat", {
+  const response = await fetch(getChatEdgeFunctionUrl(), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: buildEdgeHeaders(accessToken, true),
     body: JSON.stringify(modelId ? { messages, modelId } : { messages }),
   });
 

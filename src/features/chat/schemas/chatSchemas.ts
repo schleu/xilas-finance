@@ -1,6 +1,7 @@
 import type { BillInput } from "@/features/bills/schemas/billSchema";
 
-export type ProposedBillDraft = BillInput & {
+export type ProposedBillDraft = Omit<BillInput, "reference_month"> & {
+  reference_month?: string;
   category_name: string;
   recurring?: boolean;
 };

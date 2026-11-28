@@ -2,7 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Bill } from "@/features/bills/api/billsApi";
+import { todayIsoFortaleza } from "@/features/bills/schemas/billSchema";
 import type { Category } from "@/features/categories/api/categoriesApi";
+import type { Store } from "@/features/stores/api/storesApi";
 import { BillForm } from "./BillForm";
 
 const categories: Category[] = [
@@ -22,13 +24,63 @@ const categories: Category[] = [
   },
 ];
 
-describe("BillForm (T-10 / US-2)", () => {
+const stores: Store[] = [
+  {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    user_id: "u1",
+    name: "Assaí",
+    store_type: "physical",
+    store_subtype: "supermarket",
+    is_default: false,
+    created_at: "2026-11-26T00:00:00Z",
+  },
+];
+
+describe("BillForm (T-10, 009 & 012)", () => {
+  it("assume data atual como default de vencimento, remove campo Loja cadastrada e oferece autocomplete", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<BillForm categories={categories} stores={stores} onSubmit={onSubmit} />);
+
+    expect(screen.getByLabelText(/vencimento/i)).toHaveValue(todayIsoFortaleza());
+    expect(screen.queryByLabelText(/loja cadastrada/i)).not.toBeInTheDocument();
+
+    const companyInput = screen.getByLabelText(/empresa \/ loja/i);
+    await user.click(companyInput);
+    const option = await screen.findByRole("option", { name: "Assaí" });
+    await user.click(option);
+    expect(companyInput).toHaveValue("Assaí");
+
+    await user.type(screen.getByLabelText(/descrição/i), "Compras");
+    const amountInput = screen.getByLabelText(/valor/i);
+    await user.type(amountInput, "120.50");
+    await user.tab();
+    expect(amountInput).toHaveValue("120,50");
+
+    await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: "Compras",
+          company: "Assaí",
+          store_id: stores[0]!.id,
+          amount_cents: 12050,
+          due_date: todayIsoFortaleza(),
+          reference_month: `${todayIsoFortaleza().slice(0, 7)}-01`,
+        }),
+      );
+    });
+  });
+
   it("não salva sem campos obrigatórios e exibe erros por campo", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
 
     render(<BillForm categories={categories} onSubmit={onSubmit} />);
 
+    await user.clear(screen.getByLabelText(/vencimento/i));
     await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
     expect(await screen.findByText(/informe a descrição/i)).toBeInTheDocument();
@@ -55,6 +107,7 @@ describe("BillForm (T-10 / US-2)", () => {
 
     await user.type(screen.getByLabelText(/descrição/i), "Energia");
     await user.type(screen.getByLabelText(/valor/i), "250,00");
+    await user.clear(screen.getByLabelText(/vencimento/i));
     await user.type(screen.getByLabelText(/vencimento/i), "2026-12-15");
     await user.click(screen.getByRole("button", { name: /salvar despesa/i }));
 
@@ -63,7 +116,6 @@ describe("BillForm (T-10 / US-2)", () => {
     expect(screen.getByText(/informe a conta/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
 
-    // Trocar de volta para Pix oculta e limpa os campos bancários
     await user.type(screen.getByLabelText(/^banco/i), "Banco X");
     await user.selectOptions(screen.getByLabelText(/tipo de pagamento/i), "pix");
     expect(screen.queryByLabelText(/^banco/i)).not.toBeInTheDocument();
@@ -84,17 +136,19 @@ describe("BillForm (T-10 / US-2)", () => {
     });
   });
 
-  it("converte valor em BRL para centavos inteiros e envia conta paga com data de pagamento", async () => {
+  it("converte valor em BRL para centavos inteiros e envia conta paga com mês de referência explícito", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
     render(<BillForm categories={categories} onSubmit={onSubmit} />);
 
     await user.type(screen.getByLabelText(/descrição/i), "Aluguel");
-    await user.type(screen.getByLabelText(/empresa/i), "Imobiliária");
+    await user.type(screen.getByLabelText(/empresa \/ loja/i), "Imobiliária");
     await user.selectOptions(screen.getByLabelText(/categoria/i), categories[0]!.id);
     await user.type(screen.getByLabelText(/valor/i), "1.250,50");
-    await user.type(screen.getByLabelText(/vencimento/i), "2026-12-10");
+    await user.clear(screen.getByLabelText(/vencimento/i));
+    await user.type(screen.getByLabelText(/vencimento/i), "2027-01-10");
+    await user.type(screen.getByLabelText(/mês\/ano de referência/i), "2026-12");
     await user.selectOptions(screen.getByLabelText(/status/i), "paid");
 
     const paidAtInput = screen.getByLabelText(/data de pagamento/i) as HTMLInputElement;
@@ -112,7 +166,8 @@ describe("BillForm (T-10 / US-2)", () => {
         bank: null,
         agency: null,
         account_number: null,
-        due_date: "2026-12-10",
+        due_date: "2027-01-10",
+        reference_month: "2026-12-01",
         status: "paid",
         paid_at: paidAtInput.value,
       });
@@ -132,6 +187,7 @@ describe("BillForm (T-10 / US-2)", () => {
       agency: "1234",
       account_number: "56789-0",
       due_date: "2026-12-15",
+      reference_month: "2026-12-01",
       status: "pending",
       paid_at: null,
       created_at: "2026-11-26T00:00:00Z",
@@ -155,6 +211,7 @@ describe("BillForm (T-10 / US-2)", () => {
 
     await user.type(screen.getByLabelText(/descrição/i), "Aluguel");
     await user.type(screen.getByLabelText(/valor/i), "1500,00");
+    await user.clear(screen.getByLabelText(/vencimento/i));
     await user.type(screen.getByLabelText(/vencimento/i), "2026-12-05");
     await user.click(screen.getByLabelText(/^recorrente/i));
     await user.click(screen.getByRole("button", { name: /salvar despesa/i }));

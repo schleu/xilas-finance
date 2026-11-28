@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "@/app/ThemeProvider";
 import * as banksApi from "@/features/banks/api/banksApi";
 import * as categoriesApi from "@/features/categories/api/categoriesApi";
 import * as storesApi from "@/features/stores/api/storesApi";
@@ -10,6 +11,10 @@ import { SettingsPage } from "./SettingsPage";
 
 vi.mock("@/features/categories/api/categoriesApi", () => ({
   listCategories: vi.fn(),
+  createCategory: vi.fn(),
+  renameCategory: vi.fn(),
+  countBillsInCategory: vi.fn(),
+  deleteCategory: vi.fn(),
 }));
 vi.mock("@/features/stores/api/storesApi", () => ({
   listStores: vi.fn(),
@@ -24,9 +29,12 @@ vi.mock("@/features/banks/api/banksApi", () => ({
   deleteBank: vi.fn(),
 }));
 
-describe("SettingsPage (003 / US-2, US-3, US-4)", () => {
+describe("SettingsPage (003 & 013 / US-1, US-2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
+    document.documentElement.classList.remove("dark");
+
     vi.mocked(categoriesApi.listCategories).mockResolvedValue([
       { id: "c1", user_id: "u1", name: "Fixa", is_default: true, created_at: "2026-11-26T00:00:00Z" },
     ]);
@@ -67,28 +75,39 @@ describe("SettingsPage (003 / US-2, US-3, US-4)", () => {
     ]);
   });
 
-  it("alterna entre Categorias, Lojas e Bancos pelo submenu e mascara agência/conta", async () => {
+  it("alterna entre Categorias, Lojas, Bancos e Aparência pelo submenu lateral, usa tabelas/modais e mascara agência/conta", async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/configuracoes"]}>
-          <SettingsPage />
-        </MemoryRouter>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={["/configuracoes"]}>
+            <SettingsPage />
+          </MemoryRouter>
+        </ThemeProvider>
       </QueryClientProvider>,
     );
 
     expect(await screen.findByText("Fixa")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^lojas$/i }));
     expect(await screen.findByText("Amazon")).toBeInTheDocument();
     expect(screen.getByText("Assaí")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /nova loja/i }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /cancelar/i }));
 
     await user.click(screen.getByRole("button", { name: /^bancos$/i }));
     expect(await screen.findByText("Nubank")).toBeInTheDocument();
     expect(screen.getByText(/vence dia 10/i)).toBeInTheDocument();
     expect(screen.getByText(/••••1234/)).toBeInTheDocument();
     expect(screen.queryByText(/991234/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^aparência$/i }));
+    const darkBtn = await screen.findByRole("button", { name: "Tema Escuro" });
+    await user.click(darkBtn);
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 });

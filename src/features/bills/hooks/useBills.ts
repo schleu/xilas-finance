@@ -9,7 +9,7 @@ import {
   type BillFilters,
   type RecurringEditScope,
 } from "@/features/bills/api/billsApi";
-import type { BillInput } from "@/features/bills/schemas/billSchema";
+import type { BillFormInput } from "@/features/bills/schemas/billSchema";
 import { DASHBOARD_QUERY_KEY } from "@/features/dashboard/hooks/useDashboard";
 
 export const BILLS_QUERY_KEY = ["bills"] as const;
@@ -29,7 +29,7 @@ export function useBills(filters: BillFilters = {}) {
 export function useCreateBill() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (arg: BillInput | { input: BillInput; recurring?: boolean }) => {
+    mutationFn: (arg: BillFormInput | { input: BillFormInput; recurring?: boolean }) => {
       if ("input" in arg) {
         return createBill(arg.input, { recurring: arg.recurring });
       }
@@ -52,7 +52,7 @@ export function useUpdateBill() {
       originalDueDate,
     }: {
       id: string;
-      input: BillInput;
+      input: BillFormInput;
       scope?: RecurringEditScope;
       recurringRuleId?: string | null;
       originalDueDate?: string;

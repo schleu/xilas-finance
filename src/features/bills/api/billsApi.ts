@@ -2,11 +2,10 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import {
   billSchema,
   todayIsoFortaleza,
-  type BillInput,
+  type BillFormInput,
   type BillStatus,
   type PaymentType,
 } from "@/features/bills/schemas/billSchema";
-import { monthRange } from "@/lib/dates";
 import { getSupabase } from "@/lib/supabase";
 
 export type Bill = {
@@ -21,6 +20,7 @@ export type Bill = {
   agency: string | null;
   account_number: string | null;
   due_date: string;
+  reference_month?: string;
   status: BillStatus;
   paid_at: string | null;
   recurring_rule_id?: string | null;
@@ -51,7 +51,7 @@ type RawBillRow = Bill & {
 };
 
 const BILL_SELECT =
-  "id, user_id, description, company, category_id, amount_cents, payment_type, bank, agency, account_number, due_date, status, paid_at, recurring_rule_id, store_id, bank_id, supermarket_payment_method, nfe_url, created_at, updated_at, categories(name)";
+  "id, user_id, description, company, category_id, amount_cents, payment_type, bank, agency, account_number, due_date, reference_month, status, paid_at, recurring_rule_id, store_id, bank_id, supermarket_payment_method, nfe_url, created_at, updated_at, categories(name)";
 
 function mapBillRow(row: RawBillRow): BillWithCategory {
   const category = Array.isArray(row.categories) ? row.categories[0] : row.categories;
@@ -81,8 +81,7 @@ export async function listBills(filters: BillFilters = {}): Promise<BillWithCate
     .order("created_at", { ascending: false });
 
   if (filters.month) {
-    const { from, to } = monthRange(filters.month);
-    query = query.gte("due_date", from).lte("due_date", to);
+    query = query.eq("reference_month", `${filters.month}-01`);
   }
 
   if (filters.categoryId) {
@@ -103,7 +102,7 @@ export async function listBills(filters: BillFilters = {}): Promise<BillWithCate
 }
 
 export async function createBill(
-  input: BillInput,
+  input: BillFormInput,
   options?: { recurring?: boolean },
 ): Promise<Bill> {
   const parsed = billSchema.parse(input);
@@ -166,7 +165,7 @@ export async function createBill(
 
 export async function updateBill(
   id: string,
-  input: BillInput,
+  input: BillFormInput,
   options?: {
     scope?: RecurringEditScope;
     recurringRuleId?: string | null;

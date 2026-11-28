@@ -20,6 +20,18 @@ export const BILL_STATUS_LABELS: Record<BillStatus, string> = {
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida.");
 
+const optionalReferenceMonthSchema = z
+  .union([
+    z.string().regex(/^\d{4}-\d{2}(?:-\d{2})?$/, "Informe um mês/ano de referência válido."),
+    z.literal(""),
+    z.null(),
+  ])
+  .optional()
+  .transform((value) => {
+    if (!value) return null;
+    return `${value.slice(0, 7)}-01`;
+  });
+
 const optionalTrimmedString = z
   .string()
   .nullable()
@@ -47,6 +59,7 @@ export const billSchema = z
     agency: optionalTrimmedString,
     account_number: optionalTrimmedString,
     due_date: isoDateSchema,
+    reference_month: optionalReferenceMonthSchema,
     status: z.enum(BILL_STATUSES, { message: "Selecione o status." }),
     paid_at: z
       .union([isoDateSchema, z.literal(""), z.null()])
@@ -83,18 +96,32 @@ export const billSchema = z
     }
   })
   .transform((data) => {
+    const resolvedReferenceMonth = data.reference_month ?? `${data.due_date.slice(0, 7)}-01`;
     if (data.payment_type !== "debit") {
       return {
         ...data,
+        reference_month: resolvedReferenceMonth,
         bank: null,
         agency: null,
         account_number: null,
       };
     }
-    return data;
+    return {
+      ...data,
+      reference_month: resolvedReferenceMonth,
+    };
   });
 
+export type BillFormInput = z.input<typeof billSchema>;
 export type BillInput = z.output<typeof billSchema>;
+
+/** Formata "YYYY-MM-DD" ou "YYYY-MM" para exibição "MM/YYYY". */
+export function formatReferenceMonthBR(value: string | null | undefined): string {
+  if (!value) return "—";
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  if (!match) return value;
+  return `${match[2]}/${match[1]}`;
+}
 
 const fortalezaDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Fortaleza",

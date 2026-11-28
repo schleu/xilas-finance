@@ -1,8 +1,26 @@
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { IconTooltipButton } from "@/components/ui/icon-tooltip-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Bank } from "@/features/banks/api/banksApi";
 import {
   useBanks,
@@ -19,6 +37,7 @@ export function BanksSection() {
   const updateMutation = useUpdateBank();
   const deleteMutation = useDeleteBank();
 
+  const [showFormModal, setShowFormModal] = useState(false);
   const [name, setName] = useState("");
   const [hasDebitAccount, setHasDebitAccount] = useState(false);
   const [agency, setAgency] = useState("");
@@ -27,7 +46,8 @@ export function BanksSection() {
   const [creditCardLabel, setCreditCardLabel] = useState("");
   const [creditCardDueDay, setCreditCardDueDay] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingBank, setDeletingBank] = useState<Bank | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const resetForm = () => {
@@ -39,12 +59,39 @@ export function BanksSection() {
     setCreditCardLabel("");
     setCreditCardDueDay("");
     setEditingId(null);
-    setActionError(null);
+    setFormError(null);
+    setShowFormModal(false);
+  };
+
+  const openCreateModal = () => {
+    setName("");
+    setHasDebitAccount(false);
+    setAgency("");
+    setAccountNumber("");
+    setHasCreditCard(false);
+    setCreditCardLabel("");
+    setCreditCardDueDay("");
+    setEditingId(null);
+    setFormError(null);
+    setShowFormModal(true);
+  };
+
+  const startEdit = (bank: Bank) => {
+    setFormError(null);
+    setEditingId(bank.id);
+    setName(bank.name);
+    setHasDebitAccount(bank.has_debit_account);
+    setAgency(bank.agency ?? "");
+    setAccountNumber(bank.account_number ?? "");
+    setHasCreditCard(bank.has_credit_card);
+    setCreditCardLabel(bank.credit_card_label ?? "");
+    setCreditCardDueDay(bank.credit_card_due_day ? String(bank.credit_card_due_day) : "");
+    setShowFormModal(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setActionError(null);
+    setFormError(null);
 
     const parsedDueDay = creditCardDueDay.trim() ? Number(creditCardDueDay) : null;
     const parsed = bankSchema.safeParse({
@@ -58,7 +105,7 @@ export function BanksSection() {
     });
 
     if (!parsed.success) {
-      setActionError(parsed.error.issues[0]?.message ?? "Verifique os dados do banco.");
+      setFormError(parsed.error.issues[0]?.message ?? "Verifique os dados do banco.");
       return;
     }
 
@@ -70,44 +117,120 @@ export function BanksSection() {
       }
       resetForm();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Não foi possível salvar o banco.");
+      setFormError(error instanceof Error ? error.message : "Não foi possível salvar o banco.");
     }
-  };
-
-  const startEdit = (bank: Bank) => {
-    setActionError(null);
-    setConfirmDeleteId(null);
-    setEditingId(bank.id);
-    setName(bank.name);
-    setHasDebitAccount(bank.has_debit_account);
-    setAgency(bank.agency ?? "");
-    setAccountNumber(bank.account_number ?? "");
-    setHasCreditCard(bank.has_credit_card);
-    setCreditCardLabel(bank.credit_card_label ?? "");
-    setCreditCardDueDay(bank.credit_card_due_day ? String(bank.credit_card_due_day) : "");
   };
 
   const handleDelete = async (id: string) => {
     setActionError(null);
     try {
       await deleteMutation.mutateAsync(id);
-      setConfirmDeleteId(null);
+      setDeletingBank(null);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Não foi possível excluir o banco.");
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          {actionError}
+        </p>
+      )}
+
+      {loadError && (
+        <p role="alert" className="text-sm text-destructive">
+          Não foi possível carregar seus bancos.
+        </p>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle>{editingId ? "Editar banco" : "Novo banco"}</CardTitle>
-          <CardDescription>
-            Cadastre seus bancos com débito em conta (agência e conta) e/ou cartão de crédito (dia
-            de vencimento).
-          </CardDescription>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Bancos</CardTitle>
+            <CardDescription>
+              Gerencie suas contas bancárias (débito em conta) e cartões de crédito.
+            </CardDescription>
+          </div>
+          <Button type="button" size="sm" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Novo banco
+          </Button>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Carregando bancos...
+            </p>
+          ) : banks.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum banco cadastrado.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Banco</TableHead>
+                  <TableHead>Débito em conta</TableHead>
+                  <TableHead>Cartão de crédito</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {banks.map((bank) => (
+                  <TableRow key={bank.id}>
+                    <TableCell className="font-medium">{bank.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {bank.has_debit_account
+                        ? `Ag. ${maskBankCode(bank.agency)} · Conta ${maskBankCode(bank.account_number)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {bank.has_credit_card
+                        ? `${bank.credit_card_label ? `${bank.credit_card_label} · ` : ""}Vence dia ${bank.credit_card_due_day}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <IconTooltipButton
+                          label="Editar"
+                          icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
+                          onClick={() => startEdit(bank)}
+                        />
+                        <IconTooltipButton
+                          label="Excluir"
+                          icon={<Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />}
+                          onClick={() => setDeletingBank(bank)}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal: Novo / Editar banco */}
+      <Dialog
+        open={showFormModal}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar banco" : "Novo banco"}</DialogTitle>
+            <DialogDescription>
+              Cadastre débito em conta (agência e conta) e/ou cartão de crédito (dia de vencimento).
+            </DialogDescription>
+          </DialogHeader>
+
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="bank-name">Nome do banco *</Label>
@@ -190,111 +313,54 @@ export function BanksSection() {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            {formError && (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancelar
+              </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                 {editingId ? "Salvar banco" : "Adicionar banco"}
               </Button>
-              {editingId && (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
-      {actionError && (
-        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {actionError}
-        </p>
-      )}
-
-      {loadError && (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar seus bancos.
-        </p>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Seus bancos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Carregando bancos...
-            </p>
-          ) : banks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum banco cadastrado.</p>
-          ) : (
-            <ul className="divide-y">
-              {banks.map((bank) => (
-                <li key={bank.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <span className="font-medium">{bank.name}</span>
-                      {bank.has_debit_account && (
-                        <p className="text-xs text-muted-foreground">
-                          Débito em conta · Ag. {maskBankCode(bank.agency)} · Conta{" "}
-                          {maskBankCode(bank.account_number)}
-                        </p>
-                      )}
-                      {bank.has_credit_card && (
-                        <p className="text-xs text-muted-foreground">
-                          Cartão de crédito
-                          {bank.credit_card_label ? ` (${bank.credit_card_label})` : ""} · Vence dia{" "}
-                          {bank.credit_card_due_day}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" variant="outline" onClick={() => startEdit(bank)}>
-                        Editar
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setConfirmDeleteId(bank.id)}
-                      >
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
-                  {confirmDeleteId === bank.id && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 p-2.5 text-sm">
-                      <span>
-                        Excluir o banco <strong>{bank.name}</strong>? Despesas e rendas históricas
-                        serão mantidas.
-                      </span>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => void handleDelete(bank.id)}
-                        >
-                          Confirmar exclusão
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setConfirmDeleteId(null)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Modal: Confirmar exclusão */}
+      <Dialog
+        open={Boolean(deletingBank)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingBank(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir banco</DialogTitle>
+            <DialogDescription>
+              Excluir o banco <strong>{deletingBank?.name}</strong>? Despesas e rendas históricas
+              serão mantidas.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeletingBank(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deletingBank && void handleDelete(deletingBank.id)}
+            >
+              Confirmar exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

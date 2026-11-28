@@ -51,6 +51,17 @@ export function DashboardPage() {
         </div>
 
         <nav aria-label="Navegação de mês" className="flex flex-wrap items-center gap-2">
+          {!isCurrentMonth && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedMonth(currentMonth)}
+            >
+              Mês atual
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="outline"
@@ -77,17 +88,6 @@ export function DashboardPage() {
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
-
-          {!isCurrentMonth && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMonth(currentMonth)}
-            >
-              Mês atual
-            </Button>
-          )}
         </nav>
       </div>
 
@@ -237,7 +237,7 @@ export function DashboardPage() {
             <Button asChild>
               <Link to="/despesas">
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Criar primeira despesa
+                Registrar primeira despesa
               </Link>
             </Button>
           </CardContent>

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/components/AuthProvider";
 import { LoginPage } from "@/features/auth/components/LoginPage";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
@@ -17,25 +18,27 @@ const queryClient = new QueryClient();
 export function AppRoutes() {
   return (
     <ThemeProvider>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/definir-senha" element={<SetPasswordPage />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/despesas" element={<BillsPage />} />
-            <Route path="/contas" element={<Navigate to="/despesas" replace />} />
-            <Route path="/rendas" element={<IncomesPage />} />
-            <Route path="/configuracoes" element={<SettingsPage />} />
-            <Route
-              path="/categorias"
-              element={<Navigate to="/configuracoes?aba=categorias" replace />}
-            />
-            <Route path="/chat" element={<ChatPage />} />
+      <TooltipProvider delayDuration={150}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/definir-senha" element={<SetPasswordPage />} />
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/despesas" element={<BillsPage />} />
+              <Route path="/contas" element={<Navigate to="/despesas" replace />} />
+              <Route path="/rendas" element={<IncomesPage />} />
+              <Route path="/configuracoes" element={<SettingsPage />} />
+              <Route
+                path="/categorias"
+                element={<Navigate to="/configuracoes?aba=categorias" replace />}
+              />
+              <Route path="/chat" element={<ChatPage />} />
+            </Route>
           </Route>
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </TooltipProvider>
     </ThemeProvider>
   );
 }

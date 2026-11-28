@@ -31,6 +31,7 @@ describe("billSchema (T-09 / US-2)", () => {
         agency: null,
         account_number: null,
         due_date: "2026-12-10",
+        reference_month: "2026-12-01",
         status: "pending",
         paid_at: null,
       });
@@ -119,6 +120,22 @@ describe("billSchema (T-09 / US-2)", () => {
         status: "pending",
       }).success,
     ).toBe(false);
+  });
+
+  it("preserva reference_month quando informado explicitamente e normaliza para dia 01", () => {
+    const result = billSchema.safeParse({
+      description: "Fatura cartão",
+      category_id: validCategoryId,
+      amount_cents: 35000,
+      payment_type: "credit",
+      due_date: "2027-01-10",
+      reference_month: "2026-12",
+      status: "pending",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.reference_month).toBe("2026-12-01");
+    }
   });
 
   it("rejeita paid_at preenchido quando status é pending", () => {
